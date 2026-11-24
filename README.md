@@ -13,11 +13,15 @@ Aplikasi web statis: cukup buka `index.html`, tanpa build, backend, atau databas
 
 ## Fitur
 
+- Template perbaikan pipa & perbaikan listrik (termasuk **unggah template listrik sendiri** — otomatis tersimpan di galeri browser, bisa dihapus)
+- Galeri hiasan poster: tambah dari pustaka, unggah gambar sendiri, hapus — semua tersimpan di browser
+- **Warna dasar latar** bisa diganti (pemilih warna) sebelum/sesudah mengunggah latar; area transparan gambar mengikuti warna tersebut
 - 12 template latar + galeri hiasan, bisa unggah gambar sendiri
 - Semua blok teks bisa digeser (tombol **Magnet** untuk menempel ke garis bantu)
+- **Pemilih font per blok teks** (tombol "Aa"): 14 font formal (tanpa kait & serif), tersimpan di draf
 - Panel **Layer** untuk menyembunyikan/menampilkan elemen
 - Simpan & panggil ulang **tata letak** (tersimpan di localStorage browser)
-- Ekspor poster **PNG** 1080×1760 dan salin teks pengumuman
+- Ekspor poster **PNG** dan salin teks pengumuman
 
 ## Menjalankan
 

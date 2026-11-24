@@ -14,7 +14,7 @@
 
 .template-category h3{font:700 14px Manrope,system-ui;margin:0 0 7px}.template-category+.template-category{margin-top:14px}.template-category .gallery{grid-template-columns:repeat(3,minmax(0,1fr))}#electrical-templates{grid-template-columns:repeat(2,minmax(0,1fr))}.tile{min-height:74px}.tile span{font-size:13px}.tile-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:65% 52%}.poster-wrap{position:relative;max-width:100%;border-radius:8px;box-shadow:0 12px 30px #081d3e38}.poster-wrap canvas{width:100%;box-shadow:none}.spray{position:absolute;inset:0;overflow:hidden;border-radius:inherit;pointer-events:none}.spray i{position:absolute;left:var(--x);top:var(--spray-top);width:1.15%;aspect-ratio:1;border-radius:15% 60% 60% 60%;background:#a7f4ff;box-shadow:0 0 5px #53e8ff;animation:splash 2.1s ease-out infinite;animation-delay:var(--delay);opacity:0}.motion{display:flex;grid-auto-flow:column;align-items:center;gap:7px}.motion input{width:auto;margin:0}.photo-caption{margin-top:2px}@keyframes splash{0%{transform:translateY(8px) scale(.35) rotate(45deg);opacity:0}30%{opacity:.9}70%{opacity:.65}100%{transform:translateY(-18px) scale(.8) rotate(45deg);opacity:0}}@media(prefers-reduced-motion:reduce){.spray i{animation:none}}
 
-#manual-templates .tile{width:100%;min-height:44px}.manual-tools{display:grid;gap:8px}.manual-tools input[type=range]{padding:0;accent-color:var(--blue)}.schedule-fields{border:1px solid var(--line);padding:12px;border-radius:8px;min-width:0;margin:0;display:grid;gap:9px}.schedule-fields legend{font-weight:800;font-size:15px;padding:0 5px}#image-drag{position:absolute;top:0;right:var(--drag-right);width:var(--drag-width);height:var(--drag-height);touch-action:none;cursor:grab;border-radius:0 8px 0 0}#image-drag:active{cursor:grabbing}
+.schedule-fields{border:1px solid var(--line);padding:12px;border-radius:8px;min-width:0;margin:0;display:grid;gap:9px}.schedule-fields legend{font-weight:800;font-size:15px;padding:0 5px}#image-drag{position:absolute;top:0;right:var(--drag-right);width:var(--drag-width);height:var(--drag-height);touch-action:none;cursor:grab;border-radius:0 8px 0 0}#image-drag:active{cursor:grabbing}
 
 .title-tools{display:grid;gap:9px;border:1px solid var(--line);border-radius:8px;margin:0;padding:12px;min-width:0}.title-tools legend{font-weight:800;font-size:15px;padding:0 5px}.title-tools input[type=range]{padding:0;accent-color:var(--blue)}.area-quick{display:flex;flex-wrap:wrap;gap:6px;padding-top:8px}.area-quick .btn{padding:6px 9px;font-size:13px}.locations summary{font-size:14px;font-weight:700;cursor:pointer}
 .preset-actions{display:flex;gap:7px;flex-wrap:wrap}.preset-editor{display:grid;gap:8px;margin:0;padding:12px;min-width:0;border:1px solid var(--line);border-radius:8px}.preset-editor legend{font-size:14px;font-weight:700;padding:0 4px}.preset-section{display:grid;gap:8px}#photo-drag{position:absolute;padding:0;border:0;background:transparent;touch-action:none;cursor:grab;z-index:2;border-radius:8px}#photo-drag:active{cursor:grabbing}#photo-drag:hover{outline:1px dashed #79bcff}.doc-position{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -25,6 +25,27 @@
 .preview-workspace{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,185px)}.preview-workspace .stage{min-width:0;padding:18px}.layer-panel{min-width:0;border-left:1px solid var(--line);padding:14px 10px;background:#f8fafc;max-height:72vh;overflow:auto}.layer-panel h3{font:800 16px Manrope,system-ui;margin:0 0 9px}.layer-list{display:grid;gap:5px}.layer-row{display:flex;gap:5px;align-items:center;min-width:0;flex-wrap:wrap;padding:6px;border:1px solid #dce6ed;border-radius:7px;background:white}.layer-row[data-selected=true]{border-color:#287acd;background:#edf6ff}.layer-name{font-size:13px;flex:1 1 90px;overflow-wrap:anywhere}.layer-action{font-size:12px;padding:4px 6px;border:1px solid #d6e4ed;border-radius:5px;background:white}.layer-action[aria-pressed=false]{color:#546779;background:#eaf0f3}@media(max-width:1050px){.preview-workspace{grid-template-columns:minmax(0,1fr)}.layer-panel{border-left:0;border-top:1px solid var(--line);max-height:18rem}.layer-list{grid-template-columns:repeat(auto-fit,minmax(135px,1fr))}}
 
 .ornament-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.ornament-tile{position:relative;min-width:0}.ornament-tile .tile{width:100%;min-height:87px;padding-right:7px}.ornament-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 73%}.ornament-tile .ornament-delete{position:absolute;top:4px;right:4px;z-index:1;background:#0a253ee8;color:#fff}.icon-button{display:inline-grid;place-items:center;min-width:28px;min-height:28px;font-size:16px;line-height:1;padding:4px}.layer-row{flex-wrap:nowrap}.layer-name{flex:1 1 auto;min-width:0}.layout-menu{padding:10px 20px;font-size:14px;border-bottom:1px solid var(--line)}.layout-menu summary{cursor:pointer;font-weight:700}.layout-fields{display:grid;gap:8px;padding-top:9px}.layout-fields .row{grid-template-columns:minmax(0,1fr) auto}
+/* Fitur baru: warna dasar, galeri listrik, pemilih font */
+.color-fields{border:1px solid var(--line);border-radius:8px;margin:0;padding:12px;min-width:0;display:grid;gap:8px}
+.color-fields legend{font-weight:800;font-size:15px;padding:0 5px}
+.color-fields .row{align-items:end}
+.color-fields input[type=color]{padding:2px;height:42px;cursor:pointer}
+.upload-row{margin-top:9px}
+.ornament-tile .ornament-delete,.electrical-delete{position:absolute;top:5px;right:5px;z-index:2;width:30px;height:30px;border:1px solid #ffffff40;border-radius:8px;background:#0a253ee8;color:#fff;font:700 17px Manrope,system-ui;line-height:1;padding:0}
+.ornament-tile .ornament-delete:hover,.electrical-delete:hover{background:#b3261e;border-color:#b3261e}
+.electrical-tile{position:relative;min-width:0}
+.electrical-tile .tile{width:100%}
+.font-field{position:relative}
+.font-field>.font-btn{position:absolute;top:-2px;right:0;display:grid;place-items:center;min-width:32px;height:26px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:#f2f7fc;color:#1256b5;font:800 13px Manrope,system-ui;line-height:1;cursor:pointer;z-index:3}
+.font-field>.font-btn:hover{background:#dfeaff}
+.font-field>.font-btn[data-active="1"]{background:var(--blue);border-color:var(--blue);color:#fff}
+.font-menu{position:absolute;z-index:80;min-width:240px;max-height:340px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 18px 44px #0d274026;padding:6px}
+.font-menu h4{margin:7px 9px 4px;font:800 11px Manrope,system-ui;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.font-menu button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;border:0;background:transparent;border-radius:8px;padding:7px 10px;font-size:16px}
+.font-menu button:hover{background:#eaf3ff}
+.font-menu button[aria-checked="true"]{background:var(--blue);color:#fff}
+.font-menu small{font-size:11px;color:var(--muted)}
+.font-menu button[aria-checked="true"] small{color:#ffffffcc}
 </style>
 </head>
 <body>
@@ -42,21 +63,22 @@
 <p class="media-status" id="decoration-status" role="status" hidden></p>
 <div id="background-gallery">
 <div class="template-category"><h3>Perbaikan pipa</h3><div class="gallery" id="pipe-templates" role="group" aria-label="Perbaikan pipa"></div></div>
-<div class="template-category"><h3>Perbaikan listrik</h3><div class="gallery" id="electrical-templates" role="group" aria-label="Perbaikan listrik"></div></div>
-<div class="template-category"><h3>Template dengan gambar sendiri</h3><div id="manual-templates"></div></div>
+<div class="template-category"><h3>Perbaikan listrik</h3><div class="gallery" id="electrical-templates" role="group" aria-label="Perbaikan listrik"></div>
+<div class="asset-row upload-row"><label>Unggah ke galeri listrik<input id="upload-electrical" type="file" accept="image/png,image/jpeg,image/webp" multiple></label></div>
+<p class="media-status" id="electrical-status" role="status" hidden></p>
 </div>
-<div class="manual-tools" id="manual-tools" hidden>
-<label>Gambar di sisi poster<input id="manual-image" type="file" accept="image/png,image/jpeg,image/webp"></label>
-<p class="hint" id="manual-status">Unggah gambar, lalu geser langsung di pratinjau atau gunakan penggeser di bawah.</p>
-<label>Perbesaran<input type="range" name="imageZoom" min="100" max="260" value="100"></label>
-<div class="row"><label>Posisi horizontal<input type="range" name="imageX" min="0" max="100" value="50"></label><label>Posisi vertikal<input type="range" name="imageY" min="0" max="100" value="50"></label></div>
 </div>
+<fieldset class="color-fields">
+<legend>Warna dasar latar</legend>
+<div class="row"><label>Warna latar<input id="base-color" type="color" value="#0b2c4d"></label><button class="btn" id="reset-base-color" type="button">Warna template</button></div>
+<p class="hint">Pilih warna sebelum mengunggah latar. Bagian gambar yang transparan mengikuti warna ini.</p>
+</fieldset>
 <div class="asset-row"><label>Latar buatan sendiri<input id="custom-background" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="add-background" type="button">Tambah</button></div>
 <div class="asset-row" id="saved-background-row" hidden><label>Latar tersimpan<select id="saved-backgrounds"><option value="">Pilih latar sendiri</option></select></label><button class="btn" id="delete-background" type="button" disabled>Hapus</button></div>
 <label>Foto pekerjaan<select id="photo-layout" name="photoLayout"><option value="0">Tanpa foto</option><option value="1">Satu foto lebar</option><option value="2">Dua foto berdampingan</option></select></label>
 <div class="photo-fields">
-<div class="asset-row" id="photo-row-1" hidden><label>Foto pekerjaan 1<input id="photo-1" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="remove-photo-1" type="button" hidden>Hapus</button><label class="photo-caption" style="grid-column:1/-1">Keterangan foto 1 (opsional)<input name="caption1" maxlength="65" placeholder="Misalnya, penggantian sambungan pipa"></label></div>
-<div class="asset-row" id="photo-row-2" hidden><label>Foto pekerjaan 2<input id="photo-2" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="remove-photo-2" type="button" hidden>Hapus</button><label class="photo-caption" style="grid-column:1/-1">Keterangan foto 2 (opsional)<input name="caption2" maxlength="65" placeholder="Misalnya, penggantian sambungan pipa"></label></div>
+<div class="asset-row" id="photo-row-1" hidden><label>Foto pekerjaan 1<input id="photo-1" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="remove-photo-1" type="button" hidden>Hapus</button><label class="photo-caption font-field" style="grid-column:1/-1">Keterangan foto 1 (opsional)<button class="font-btn" type="button" data-font-for="caption1" title="Ganti font" aria-label="Ganti font keterangan foto 1">Aa</button><input name="caption1" maxlength="65" placeholder="Misalnya, penggantian sambungan pipa"></label></div>
+<div class="asset-row" id="photo-row-2" hidden><label>Foto pekerjaan 2<input id="photo-2" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="remove-photo-2" type="button" hidden>Hapus</button><label class="photo-caption font-field" style="grid-column:1/-1">Keterangan foto 2 (opsional)<button class="font-btn" type="button" data-font-for="caption2" title="Ganti font" aria-label="Ganti font keterangan foto 2">Aa</button><input name="caption2" maxlength="65" placeholder="Misalnya, penggantian sambungan pipa"></label></div>
 </div>
 <div class="doc-position" id="doc-position" hidden><span class="hint">Tarik blok foto di pratinjau untuk memindahkannya.</span><button class="btn" id="reset-doc-position" type="button">Kembalikan posisi foto</button></div>
 <input name="docX" type="hidden"><input name="docY" type="hidden">
@@ -64,9 +86,9 @@
 </fieldset>
 <fieldset class="title-tools"><legend>Jenis pengumuman</legend>
 <label>Jenis<select name="type"><option>Gangguan Aliran Air</option><option>Pemeliharaan Terjadwal</option><option>Aliran Air Kembali Normal</option></select></label>
-<label>Judul sendiri (opsional)<textarea name="customTitle" rows="2" maxlength="90" placeholder="Enter untuk membuat baris baru"></textarea></label>
+<label class="font-field">Judul sendiri (opsional)<button class="font-btn" type="button" data-font-for="title" title="Ganti font" aria-label="Ganti font judul">Aa</button><textarea name="customTitle" rows="2" maxlength="90" placeholder="Enter untuk membuat baris baru"></textarea></label>
 <label>Ukuran judul <output id="title-size" for="title-scale">100%</output><input id="title-scale" name="titleScale" type="range" min="65" max="125" step="5" value="100"></label>
-<label>Teks tambahan (opsional)<textarea name="titleExtra" rows="2" maxlength="125" placeholder="Enter untuk membuat baris baru"></textarea></label>
+<label class="font-field">Teks tambahan (opsional)<button class="font-btn" type="button" data-font-for="extra" title="Ganti font" aria-label="Ganti font teks tambahan">Aa</button><textarea name="titleExtra" rows="2" maxlength="125" placeholder="Enter untuk membuat baris baru"></textarea></label>
 </fieldset>
 <div class="preset-section" id="cause-presets">
 <label>Penyebab gangguan<select name="cause"></select></label>
@@ -88,7 +110,7 @@
 <fieldset class="preset-editor" id="area-master" hidden>
 <legend id="area-list-label">Master Wilayah Terdampak</legend>
 <label id="area-name-row" hidden>Nama pilihan wilayah<input id="area-list-name" maxlength="85" placeholder="Misalnya, Wilayah Utara"></label>
-<label>Daftar wilayah<textarea id="area-master-text" rows="6" maxlength="3000" placeholder="Ketik atau tempel daftar, satu nama wilayah per baris"></textarea></label>
+<label class="font-field">Daftar wilayah<button class="font-btn" type="button" data-font-for="area" title="Ganti font" aria-label="Ganti font wilayah terdampak">Aa</button><textarea id="area-master-text" rows="6" maxlength="3000" placeholder="Ketik atau tempel daftar, satu nama wilayah per baris"></textarea></label>
 <div class="preset-actions"><button class="btn primary" id="save-area-master" type="button">Simpan dan pakai di poster</button><button class="btn" id="close-area-master" type="button">Tutup</button><button class="btn" id="delete-area-list" type="button" hidden>Hapus pilihan</button></div>
 </fieldset><p class="media-status" id="area-master-status" role="status" hidden></p>
 </div>
@@ -97,9 +119,9 @@
 <fieldset class="schedule-fields"><legend>Perkiraan selesai</legend>
 <label>Jenis perkiraan<select name="finishMode"><option value="scheduled">Tanggal dan jam</option><option value="until">Sampai selesai</option></select></label>
 <div class="row" id="end-fields"><label>Tanggal selesai<input name="endDate" type="date"></label><label>Jam selesai (WIB)<input name="endTime" type="time"></label></div></fieldset>
-<label>Rincian penyebab<textarea name="note" maxlength="400" rows="3"></textarea></label>
+<label class="font-field">Rincian penyebab<button class="font-btn" type="button" data-font-for="note" title="Ganti font" aria-label="Ganti font rincian penyebab">Aa</button><textarea name="note" maxlength="400" rows="3"></textarea></label>
 <fieldset class="title-tools"><legend>Imbauan pelanggan</legend>
-<label>Teks imbauan<textarea name="advice" maxlength="250" rows="3"></textarea></label>
+<label class="font-field">Teks imbauan<button class="font-btn" type="button" data-font-for="advice" title="Ganti font" aria-label="Ganti font imbauan">Aa</button><textarea name="advice" maxlength="250" rows="3"></textarea></label>
 <label>Posisi vertikal<select name="advicePosition"><option value="before">Di atas wilayah</option><option value="after">Di bawah wilayah</option><option value="photos">Di bawah foto</option></select></label>
 <label>Geser kiri atau kanan<input type="range" name="adviceX" min="0" max="100" value="50"></label>
 <label>Ukuran huruf <output id="advice-size" for="advice-scale">100%</output><input id="advice-scale" type="range" name="adviceScale" min="70" max="150" step="5" value="100"></label>
@@ -110,9 +132,10 @@
 <div class="row"><label><span class="sr">Nama tata letak</span><input id="layout-name" maxlength="70" placeholder="Nama tata letak"></label><button class="btn" id="save-layout" type="button">Simpan posisi</button></div>
 <div class="row"><label><span class="sr">Pilih tata letak tersimpan</span><select id="saved-layouts"><option value="">Pilih tata letak</option></select></label><button class="btn" id="apply-layout" type="button" disabled>Pakai</button></div>
 <p class="media-status" id="layout-status" role="status" hidden></p>
-</div></details><div class="preview-workspace"><div class="stage"><div class="poster-wrap" id="poster-wrap"><canvas width="1080" height="1080" id="poster" role="img" aria-label="Pratinjau pengumuman aliran air"></canvas><div id="image-drag" aria-hidden="true" hidden></div><i class="snap-guide" id="snap-x" aria-hidden="true" hidden></i><i class="snap-guide" id="snap-y" aria-hidden="true" hidden></i><button id="photo-drag" type="button" aria-label="Pindahkan foto dokumentasi dengan menarik atau tombol panah" hidden></button><div class="spray" id="repair-spray" aria-hidden="true" hidden><i style="--x:77%;--delay:0s"></i><i style="--x:80%;--delay:.37s"></i><i style="--x:83%;--delay:.8s"></i></div></div></div><aside class="layer-panel" aria-label="Layer poster"><h3>Layer</h3><div class="layer-list" id="layer-list"></div></aside></div>
+</div></details><div class="preview-workspace"><div class="stage"><div class="poster-wrap" id="poster-wrap"><canvas width="1080" height="1080" id="poster" role="img" aria-label="Pratinjau pengumuman aliran air"></canvas><i class="snap-guide" id="snap-x" aria-hidden="true" hidden></i><i class="snap-guide" id="snap-y" aria-hidden="true" hidden></i><button id="photo-drag" type="button" aria-label="Pindahkan foto dokumentasi dengan menarik atau tombol panah" hidden></button><div class="spray" id="repair-spray" aria-hidden="true" hidden><i style="--x:77%;--delay:0s"></i><i style="--x:80%;--delay:.37s"></i><i style="--x:83%;--delay:.8s"></i></div></div></div><aside class="layer-panel" aria-label="Layer poster"><h3>Layer</h3><div class="layer-list" id="layer-list"></div></aside></div>
 <div class="tools"><label class="motion" id="motion-control" hidden><input id="motion" type="checkbox" checked>Animasi pratinjau</label><div class="actions"><button class="btn" type="button" id="copy">Salin teks</button><button class="btn primary" type="button" id="download">Unduh PNG</button></div></div>
 </section></div>
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
-<script src="backgrounds.js?v=20261124b"></script><script src="social-icons.js?v=20261124b"></script><script src="repair.js?v=20261124b"></script><script src="decorations.js?v=20261124b"></script><script src="app.js?v=20261124b"></script></body></html>
+<div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
+<script src="backgrounds.js?v=20261124d"></script><script src="social-icons.js?v=20261124d"></script><script src="repair.js?v=20261124d"></script><script src="decorations.js?v=20261124d"></script><script src="app.js?v=20261124d"></script></body></html>

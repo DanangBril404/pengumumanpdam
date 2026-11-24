@@ -1,6 +1,5 @@
 const defaultTemplate = 'repair'
 const backdrops = {
-  manual: { name: 'Gambar Sendiri', colors: ['#092744', '#15547d', '#c0edff'], manual: true },
   repair: { name: 'Sambungan Pipa', art: 'repair-work.webp', colors: ['#071c35', '#125071', '#9eecff'], badges: [
     [421 / 640, 130 / 427, 29, -.30], [532 / 640, 67 / 427, 28, -.12],
     [301 / 640, 210 / 427, 31, .25], [575 / 640, 160 / 427, 28, -.15]
@@ -13,6 +12,18 @@ const backdrops = {
   replacement: { name: 'Penggantian Pipa', art: 'pipe-replacement.webp', colors: ['#0c333d', '#20747a', '#bdf9ff'] },
   panel: { name: 'Panel Listrik', art: 'electrical-panel.webp', colors: ['#21243a', '#51476d', '#ffe2a2'], electrical: true },
   power: { name: 'Jaringan Listrik', art: 'electrical-network.webp', colors: ['#262440', '#485889', '#ffe7a6'], electrical: true }
+}
+
+/* Warna dasar pilihan pengguna: gelapkan/terangkan satu warna hex. */
+function shadeHex(hex, amount) {
+  const nilai = String(hex || '').replace('#', '')
+  if (nilai.length !== 6) return hex
+  const kanal = [0, 2, 4].map(i => {
+    const v = parseInt(nilai.slice(i, i + 2), 16)
+    const hasil = amount < 0 ? v * (1 + amount) : v + (255 - v) * amount
+    return Math.max(0, Math.min(255, Math.round(hasil))).toString(16).padStart(2, '0')
+  })
+  return '#' + kanal.join('')
 }
 
 function coverImageFrame(image, x, y, width, height) {
@@ -32,16 +43,18 @@ function coverImage(context, image, x, y, width, height) {
     height * image.height / frame.height, x, y, width, height)
 }
 
-function paintBackdrop(context, height, backdrop, image = null) {
-  const [dark, bright, accent] = backdrop.colors
+function paintBackdrop(context, height, backdrop, image = null, baseColor = '') {
+  const dasar = baseColor ? shadeHex(baseColor, -0.28) : backdrop.colors[0]
+  const terang = baseColor || backdrop.colors[1]
+  const accent = backdrop.colors[2]
   const gradient = context.createLinearGradient(0, 0, 1080, Math.min(height, 1500))
-  gradient.addColorStop(0, dark)
-  gradient.addColorStop(1, bright)
+  gradient.addColorStop(0, dasar)
+  gradient.addColorStop(1, terang)
   context.fillStyle = gradient
   context.fillRect(0, 0, 1080, height)
   if (image) {
     coverImage(context, image, 0, 0, 1080, height)
-    context.fillStyle = '#071b35c4'
+    context.fillStyle = baseColor ? baseColor + '2e' : '#071b35c4'
     context.fillRect(0, 0, 1080, height)
     return
   }

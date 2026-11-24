@@ -6,6 +6,30 @@ const uuidAsli = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 
   ? crypto.randomUUID.bind(crypto) : null
 const buatId = () => (uuidAsli ? uuidAsli()
   : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10))
+
+/* Pilihan font formal untuk setiap blok teks poster. Semua font sistem/web-safe
+   agar hasil PNG konsisten tanpa menunggu unduhan font tambahan. */
+const formalFonts = {
+  dm: { name: 'DM Sans', stack: '"DM Sans", system-ui, sans-serif', group: 'Tanpa kait' },
+  manrope: { name: 'Manrope', stack: 'Manrope, system-ui, sans-serif', group: 'Tanpa kait' },
+  arial: { name: 'Arial', stack: 'Arial, Helvetica, sans-serif', group: 'Tanpa kait' },
+  helvetica: { name: 'Helvetica', stack: 'Helvetica, Arial, sans-serif', group: 'Tanpa kait' },
+  tahoma: { name: 'Tahoma', stack: 'Tahoma, Verdana, sans-serif', group: 'Tanpa kait' },
+  verdana: { name: 'Verdana', stack: 'Verdana, Geneva, sans-serif', group: 'Tanpa kait' },
+  trebuchet: { name: 'Trebuchet MS', stack: '"Trebuchet MS", Tahoma, sans-serif', group: 'Tanpa kait' },
+  segoe: { name: 'Segoe UI', stack: '"Segoe UI", Tahoma, sans-serif', group: 'Tanpa kait' },
+  georgia: { name: 'Georgia', stack: 'Georgia, "Times New Roman", serif', group: 'Berkait (serif)' },
+  times: { name: 'Times New Roman', stack: '"Times New Roman", Times, serif', group: 'Berkait (serif)' },
+  cambria: { name: 'Cambria', stack: 'Cambria, Georgia, serif', group: 'Berkait (serif)' },
+  garamond: { name: 'Garamond', stack: 'Garamond, "Palatino Linotype", serif', group: 'Berkait (serif)' },
+  palatino: { name: 'Palatino', stack: '"Palatino Linotype", "Book Antiqua", Palatino, serif', group: 'Berkait (serif)' },
+  bookman: { name: 'Bookman', stack: '"Bookman Old Style", Georgia, serif', group: 'Berkait (serif)' }
+}
+const fontLabels = {
+  title: 'Judul', extra: 'Teks tambahan', note: 'Rincian penyebab',
+  area: 'Wilayah terdampak', advice: 'Imbauan pelanggan',
+  caption1: 'Keterangan foto 1', caption2: 'Keterangan foto 2'
+}
 const canvas = document.querySelector('#poster')
 const ctx = canvas.getContext('2d')
 const status = document.querySelector('#status')
@@ -50,9 +74,6 @@ const example = {
   endDate: '',
   endTime: '',
   finishMode: 'scheduled',
-  imageZoom: '100',
-  imageX: '50',
-  imageY: '50',
   note: '',
   advice: 'Pelanggan di wilayah terdampak diimbau menampung air secukupnya untuk kebutuhan rumah tangga.',
   advicePosition: 'after',
@@ -66,13 +87,15 @@ const example = {
 }
 const storageKey = 'kabar-air-studio-draft'
 let template = defaultTemplate
+let fonts = {}
+let baseColor = ''
+let activeFont = formalFonts.dm.stack
 let customBackground = null
 let manualImage = null
 let posterScale = 1
 let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
-const imageDrag = document.querySelector('#image-drag')
 const photos = [null, null]
 const posterWrap = document.querySelector('#poster-wrap')
 const repairSpray = document.querySelector('#repair-spray')
@@ -81,6 +104,8 @@ const motionControl = document.querySelector('#motion-control')
 const iconPaths = socialIcons.map(icon => new Path2D(icon.data))
 let draft = null
 try { draft = JSON.parse(localStorage.getItem(storageKey)) } catch {}
+fonts = draft?.fonts && typeof draft.fonts === 'object' ? { ...draft.fonts } : {}
+baseColor = typeof draft?.baseColor === 'string' ? draft.baseColor : ''
 let blockPositions = draft?.blockPositions || {}
 const hiddenLayers = new Set(draft?.hiddenLayers || [])
 const decorationNames = {
@@ -316,8 +341,16 @@ function drawSchedule(day, time, x, dark, bright, until = false) {
   if (hour) label(hour, x, date ? 642 : 616, 41, bright, 800)
 }
 
+function fontStack(key) {
+  return (formalFonts[fonts[key]] || formalFonts.dm).stack
+}
+
+function setFont(key) {
+  activeFont = key ? fontStack(key) : formalFonts.dm.stack
+}
+
 function typeface(size, weight) {
-  ctx.font = weight + ' ' + size + 'px system-ui, sans-serif'
+  ctx.font = weight + ' ' + size + 'px ' + activeFont
 }
 
 function label(text, x, y, size, color, weight = 700) {
@@ -421,10 +454,12 @@ function drawDocumentation(f, x, y, count, height, repair, accent) {
       if (repair) rounded(photoX + 19, top + height - 46, 44, 29, 7, '#ffd066')
       if (repair) label(String(index + 1).padStart(2, '0'), photoX + 29, top + height - 25, 17, '#17283c', 800)
       const inset = repair ? 76 : 24
+      setFont('caption' + (index + 1))
       block(caption || 'Foto pekerjaan ' + (index + 1), photoX + inset, top + height - 24,
         width - inset - 22, 1, 23, '#ffffff', 600)
     }
   }
+  setFont()
 }
 
 function drawAdvice(f, y, lines, fontSize, height, dark) {
@@ -449,6 +484,7 @@ function drawAdvice(f, y, lines, fontSize, height, dark) {
   ctx.fill()
   ctx.restore()
   label('IMBAUAN PELANGGAN', x + 90, y + 32, 19, dark, 800)
+  setFont('advice')
   lines.forEach((line, index) => label(line, x + 90, y + 67 + index * (fontSize + 7), fontSize, dark, 700))
 }
 
@@ -466,12 +502,14 @@ function render() {
   const titleWidth = repair ? 620 : 950
   const heading = repair && !f.customTitle && f.type === example.type && cause
     ? title + '\n' + cause.title : title
+  setFont('title')
   typeface(titleSize, 800)
   const titleLines = wrap(heading, titleWidth)
   const titleStep = Math.round(titleSize * 1.12)
   const titleY = repair ? 311 : 286
   const titleEnd = titleY + (titleLines.length - 1) * titleStep
   const extraSize = repair ? 31 : 28
+  setFont('extra')
   typeface(extraSize, 700)
   const extraLines = f.titleExtra ? wrap(f.titleExtra, repair ? 800 : 950) : []
   const extraY = Math.max(repair ? 450 : 316, titleEnd + extraSize + 12)
@@ -482,6 +520,7 @@ function render() {
   const photoHeight = repair ? (photoCount === 1 ? 455 : 394) : (photoCount === 1 ? 355 : 320)
   const photoSpace = photoCount ? photoHeight + 64 : 0
   const areas = locations(f.area)
+  setFont('area')
   typeface(27, 600)
   const columns = areas.length >= 6 ? 2 : 1
   const areaWidth = columns === 2 ? 439 : 900
@@ -492,6 +531,7 @@ function render() {
   const heightOf = group => group.reduce((sum, lines) => sum + lines.length * 34 + 8, 0)
   const areaHeight = Math.max(heightOf(left), heightOf(right))
   const adviceSize = Math.round(28 * Number(f.adviceScale) / 100)
+  setFont('advice')
   typeface(adviceSize, 700)
   const adviceLines = f.advice ? wrap(f.advice, 725) : []
   const adviceHeight = adviceLines.length ? 85 + (adviceLines.length - 1) * (adviceSize + 7) : 0
@@ -509,7 +549,7 @@ function render() {
   repairSpray.hidden = !animate || !motion.checked
   document.querySelector('#poster-size').textContent = '1080 × ' + height + ' px'
   canvas.setAttribute('aria-label', announcement(f))
-  paintBackdrop(ctx, height, backdrop, showArtwork ? customBackground : null)
+  paintBackdrop(ctx, height, backdrop, showArtwork ? customBackground : null, baseColor)
   ctx.save()
   ctx.translate(offset, 0)
   ctx.scale(posterScale, posterScale)
@@ -536,10 +576,7 @@ function render() {
     paintRepairHero(ctx, backdrop, backdrop.manual ? manualImage : templateArtwork.get(template),
       hiddenLayers.has('logo') ? null : logo, f)
   }
-  imageDrag.hidden = !showArtwork || !backdrop.manual || !manualImage
-  imageDrag.style.setProperty('--drag-height', (manualFrame.height * posterScale / height * 100) + '%')
-  imageDrag.style.setProperty('--drag-width', (manualFrame.width * posterScale / 1080 * 100) + '%')
-  imageDrag.style.setProperty('--drag-right', (offset / 1080 * 100) + '%')
+  setFont()
 
   if (logo) renderBlock('logo', 55, 33, 132, 132, () => paintLogo(ctx, logo, 121, 99, 132))
   const agencyX = logo ? 201 : 65
@@ -559,6 +596,7 @@ function render() {
     }
   })
   renderBlock('title', 60, titleY - titleSize, titleWidth, titleEnd - titleY + titleSize + 16, () => {
+    setFont('title')
     titleLines.forEach((line, index) => label(line, 60, titleY + index * titleStep, titleSize, '#ffffff', 800))
     if (repair) {
       ctx.fillStyle = '#ffd066'
@@ -567,6 +605,7 @@ function render() {
   })
   if (extraLines.length) {
     renderBlock('extra', 65, extraY - extraSize, repair ? 800 : 950, extraEnd - extraY + extraSize + 12, () => {
+      setFont('extra')
       extraLines.forEach((line, index) => label(line, 65, extraY + index * (extraSize + 8), extraSize, '#ffffff'))
     })
   }
@@ -575,6 +614,7 @@ function render() {
   ctx.translate(0, shift + spacing)
   renderBlock('cause', 64, 325, 952, 172, () => {
     rounded(64, 325, 952, 172, 23, '#fff0bb')
+    setFont('note')
     block(cause?.title || 'Rincian Pengumuman', 94, 371, 890, 1, 32, dark, 800)
     block(f.note.replace(/\s+/g, ' ') || 'Belum diinformasikan', 94, 410, 890, 3, 25, dark, 600)
   })
@@ -601,6 +641,7 @@ function render() {
   renderBlock('areas', 64, 650, 952, areaHeight + 76, () => {
     label('WILAYAH TERDAMPAK', 65, 677, 26, accent)
     rounded(64, 695, 952, areaHeight + 31, 22, '#ffffff')
+    setFont('area')
     for (const [index, group] of [left, right].entries()) {
       const x = 93 + index * 463
       let y = 731
@@ -641,6 +682,7 @@ function render() {
     photoDrag.style.height = docHeight * posterScale / height * 100 + '%'
   }
   renderBlock('socials', 64, footerTop, 952, footerHeight, () => {
+    setFont()
     rounded(64, footerTop, 952, footerHeight, 19, dark)
     for (const [index, account] of socials.entries()) {
       const x = index % 2 === 0 ? 87 : 550
@@ -673,7 +715,7 @@ function announcement(f) {
 }
 
 function save() {
-  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers] })) } catch {}
+  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor })) } catch {}
 }
 
 function update() {
@@ -687,7 +729,6 @@ function update() {
   document.querySelector('#advice-size').textContent = form.elements.adviceScale.value + '%'
   document.querySelector('#clear-areas').disabled = !form.elements.area.value
   document.querySelector('#title-size').textContent = form.elements.titleScale.value + '%'
-  document.querySelector('#manual-tools').hidden = template !== 'manual'
   for (const button of gallery.querySelectorAll('button')) {
     button.setAttribute('aria-pressed', String(button.dataset.template === template))
   }
@@ -934,11 +975,32 @@ function setLogo(image) {
   render()
 }
 
-async function decodeImage(source) {
-  const image = new Image()
-  image.src = source
-  await image.decode()
-  return image
+/* Memuat gambar dari URL/data URL. Tidak memakai image.decode() saja karena di
+   sebagian browser promise itu bisa menggantung (tidak resolve/reject), sehingga
+   unggah gambar tampak "diam". onload/onerror + batas waktu membuatnya pasti selesai. */
+function decodeImage(source) {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    let selesai = false
+    const beres = () => {
+      if (selesai) return
+      selesai = true
+      clearTimeout(jam)
+      if (image.naturalWidth || image.width) resolve(image)
+      else reject(new Error('Gambar tidak dapat dibuka.'))
+    }
+    const gagal = () => {
+      if (selesai) return
+      selesai = true
+      clearTimeout(jam)
+      reject(new Error('Gambar tidak dapat dibuka.'))
+    }
+    const jam = setTimeout(gagal, 15000)
+    image.onload = beres
+    image.onerror = gagal
+    image.src = source
+    if (image.complete && image.naturalWidth) beres()
+  })
 }
 
 let logoRevision = 0
@@ -1025,18 +1087,43 @@ async function selectCustom(id) {
   }
 }
 
-for (const [id, backdrop] of Object.entries(backdrops)) {
+/* ---------- Galeri template perbaikan listrik (unggah + hapus + tersimpan) ---------- */
+const electricalKey = 'kabar-air-electrical-templates'
+let electricalTemplates = readStorage(electricalKey, [])
+const electricalGallery = document.querySelector('#electrical-templates')
+const electricalStatus = document.querySelector('#electrical-status')
+
+function daftarkanElectrical() {
+  for (const entry of electricalTemplates) {
+    if (!entry?.id) continue
+    backdrops[entry.id] = {
+      name: entry.name || 'Template listrik',
+      colors: Array.isArray(entry.colors) && entry.colors.length === 3 ? entry.colors : ['#21243a', '#51476d', '#ffe2a2'],
+      electrical: true,
+      custom: true,
+      art: readStorage(entry.sourceKey, '') || ''
+    }
+  }
+}
+
+function tampilStatusElectrical(pesan) {
+  electricalStatus.hidden = !pesan
+  electricalStatus.textContent = pesan
+}
+
+function buatTile(id, backdrop) {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = 'tile'
   button.dataset.template = id
+  button.setAttribute('aria-pressed', String(id === template))
   const thumbnail = document.createElement('canvas')
   thumbnail.width = 160
   thumbnail.height = 72
   thumbnail.setAttribute('aria-hidden', 'true')
   const thumbnailContext = thumbnail.getContext('2d')
   thumbnailContext.scale(160 / 1080, 72 / 630)
-  paintBackdrop(thumbnailContext, 630, backdrop)
+  paintBackdrop(thumbnailContext, 630, backdrop, null, baseColor)
   const name = document.createElement('span')
   name.textContent = backdrop.name
   button.append(thumbnail)
@@ -1050,9 +1137,116 @@ for (const [id, backdrop] of Object.entries(backdrops)) {
   }
   button.append(name)
   button.addEventListener('click', () => selectBuiltin(id))
-  const group = backdrop.manual ? '#manual-templates' : backdrop.electrical ? '#electrical-templates' : '#pipe-templates'
-  document.querySelector(group).append(button)
+  return button
 }
+
+function showElectricalGallery() {
+  electricalGallery.replaceChildren()
+  for (const [id, backdrop] of Object.entries(backdrops)) {
+    if (!backdrop.electrical || backdrop.custom) continue
+    electricalGallery.append(buatTile(id, backdrop))
+  }
+  for (const entry of electricalTemplates) {
+    const backdrop = backdrops[entry.id]
+    if (!backdrop) continue
+    const bungkus = document.createElement('div')
+    bungkus.className = 'electrical-tile'
+    const hapus = document.createElement('button')
+    hapus.type = 'button'
+    hapus.className = 'electrical-delete'
+    hapus.textContent = '×'
+    hapus.title = 'Hapus ' + entry.name + ' dari galeri'
+    hapus.setAttribute('aria-label', hapus.title)
+    hapus.addEventListener('click', event => {
+      event.stopPropagation()
+      hapusElectrical(entry)
+    })
+    bungkus.append(buatTile(entry.id, backdrop), hapus)
+    electricalGallery.append(bungkus)
+  }
+}
+
+function hapusElectrical(entry) {
+  const next = electricalTemplates.filter(item => item.id !== entry.id)
+  if (!storeLocal(electricalKey, next)) return
+  electricalTemplates = next
+  try { localStorage.removeItem(entry.sourceKey) } catch {}
+  delete backdrops[entry.id]
+  templateArtwork.delete(entry.id)
+  if (template === entry.id) selectBuiltin(defaultTemplate)
+  showElectricalGallery()
+  tampilStatusElectrical('Template listrik dihapus dari galeri.')
+}
+
+const electricalUpload = document.querySelector('#upload-electrical')
+electricalUpload.addEventListener('change', async () => {
+  const files = Array.from(electricalUpload.files)
+  electricalUpload.value = ''
+  let ditambah = 0
+  let pesan = ''
+  for (const file of files) {
+    try {
+      const image = await loadImageFile(file)
+      const kanvas = document.createElement('canvas')
+      const skala = Math.min(1, 1400 / Math.max(image.width, image.height))
+      kanvas.width = Math.max(1, Math.round(image.width * skala))
+      kanvas.height = Math.max(1, Math.round(image.height * skala))
+      kanvas.getContext('2d').drawImage(image, 0, 0, kanvas.width, kanvas.height)
+      const id = 'listrik-' + buatId()
+      const sourceKey = 'kabar-air-listrik-' + id
+      if (!storeLocal(sourceKey, kanvas.toDataURL('image/webp', .9))) {
+        pesan = 'Penyimpanan browser penuh. Hapus template listrik lama untuk menambah gambar.'
+        continue
+      }
+      const entry = {
+        id,
+        name: (file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Template listrik'),
+        sourceKey
+      }
+      const next = [...electricalTemplates, entry]
+      if (!storeLocal(electricalKey, next)) {
+        try { localStorage.removeItem(sourceKey) } catch {}
+        pesan = 'Template belum tersimpan. Kosongkan sebagian penyimpanan browser.'
+        continue
+      }
+      electricalTemplates = next
+      backdrops[id] = {
+        name: entry.name, colors: ['#21243a', '#51476d', '#ffe2a2'],
+        electrical: true, custom: true, art: readStorage(sourceKey, '')
+      }
+      ditambah++
+      await selectBuiltin(id)
+    } catch (error) {
+      pesan = error.message
+    }
+  }
+  showElectricalGallery()
+  tampilStatusElectrical([ditambah ? ditambah + ' template listrik tersimpan dan langsung dipakai.' : '', pesan].filter(Boolean).join(' '))
+})
+
+daftarkanElectrical()
+
+/* ---------- Warna dasar latar ---------- */
+const baseColorInput = document.querySelector('#base-color')
+baseColorInput.value = baseColor || '#0b2c4d'
+baseColorInput.addEventListener('input', () => {
+  baseColor = baseColorInput.value
+  render()
+  save()
+})
+document.querySelector('#reset-base-color').addEventListener('click', () => {
+  baseColor = ''
+  baseColorInput.value = '#0b2c4d'
+  render()
+  save()
+  mediaStatus.textContent = 'Warna latar kembali mengikuti template.'
+})
+
+for (const [id, backdrop] of Object.entries(backdrops)) {
+  if (backdrop.electrical || backdrop.custom) continue
+  document.querySelector('#pipe-templates').append(buatTile(id, backdrop))
+}
+showElectricalGallery()
 
 async function loadImageFile(file) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
@@ -1292,12 +1486,11 @@ document.querySelector('#save-layout').addEventListener('click', () => {
   }
   const existing = savedLayouts.find(item => item.name.toLocaleLowerCase('id') === name.toLocaleLowerCase('id'))
   const photo = [form.elements.docX.value, form.elements.docY.value]
-  const image = [form.elements.imageX.value, form.elements.imageY.value, form.elements.imageZoom.value]
   const advice = [form.elements.advicePosition.value, form.elements.adviceX.value]
   const layout = {
     id: existing?.id ?? buatId(), name, template,
     positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
-    hidden: [...hiddenLayers], photo, image, advice
+    hidden: [...hiddenLayers], photo, advice
   }
   const next = existing ? savedLayouts.map(item => item.id === layout.id ? layout : item) : [...savedLayouts, layout]
   if (!storeLocal(savedLayoutsKey, next)) return
@@ -1320,7 +1513,6 @@ applyLayoutButton.addEventListener('click', async () => {
   for (const id of layout.hidden) hiddenLayers.add(id)
   for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
   ;[form.elements.docX.value, form.elements.docY.value] = layout.photo
-  ;[form.elements.imageX.value, form.elements.imageY.value, form.elements.imageZoom.value] = layout.image
   ;[form.elements.advicePosition.value, form.elements.adviceX.value] = layout.advice
   showLayerPanel()
   if (Object.hasOwn(backdrops, layout.template)) selectBuiltin(layout.template)
@@ -1330,53 +1522,99 @@ applyLayoutButton.addEventListener('click', async () => {
   showLayoutStatus('Tata letak diterapkan ke pengumuman ini.')
 })
 
-const manualInput = document.querySelector('#manual-image')
-const manualStatus = document.querySelector('#manual-status')
-let manualRevision = 0
-manualInput.addEventListener('change', async () => {
-  const file = manualInput.files[0]
-  if (!file) return
-  const revision = ++manualRevision
-  try {
-    const image = await loadImageFile(file)
-    if (revision !== manualRevision) return
-    manualImage = image
-    form.elements.imageX.value = form.elements.imageY.value = '50'
-    form.elements.imageZoom.value = '100'
-    manualStatus.textContent = 'Geser gambar di pratinjau. Perbesar jika perlu ruang tambahan untuk menggeser.'
-    render()
-    save()
-  } catch (error) {
-    if (revision === manualRevision) manualStatus.textContent = error.message
-  } finally {
-    if (revision === manualRevision) manualInput.value = ''
-  }
-})
+/* ---------- Pemilih font per blok teks ---------- */
+const fontMenu = document.querySelector('#font-menu')
+let fontMenuField = null
 
-let drag = null
-imageDrag.addEventListener('pointerdown', event => {
-  if (drag || event.button !== 0 || !manualImage) return
-  const f = fields()
-  const placement = manualImagePlacement(manualImage, Number(f.imageZoom), Number(f.imageX), Number(f.imageY))
-  drag = {
-    id: event.pointerId, clientX: event.clientX, clientY: event.clientY,
-    x: Number(f.imageX), y: Number(f.imageY),
-    overflowX: placement.width - manualFrame.width, overflowY: placement.height - manualFrame.height
+function syncFontButtons() {
+  for (const button of document.querySelectorAll('.font-btn')) {
+    const kunci = button.dataset.fontFor
+    const pilihan = formalFonts[fonts[kunci]] || formalFonts.dm
+    button.title = 'Font ' + (fontLabels[kunci] || kunci) + ': ' + pilihan.name
+    button.dataset.active = fonts[kunci] && fonts[kunci] !== 'dm' ? '1' : '0'
+    button.style.fontFamily = pilihan.stack
   }
-  imageDrag.setPointerCapture(event.pointerId)
-})
-imageDrag.addEventListener('pointermove', event => {
-  if (drag?.id !== event.pointerId || !drag) return
-  const scale = 1080 / (canvas.getBoundingClientRect().width * posterScale)
-  const move = (position, change, overflow) => Math.max(0, Math.min(100, position - change * scale * 100 / overflow))
-  if (drag.overflowX > 0.01) form.elements.imageX.value = String(Math.round(move(drag.x, event.clientX - drag.clientX, drag.overflowX)))
-  if (drag.overflowY > 0.01) form.elements.imageY.value = String(Math.round(move(drag.y, event.clientY - drag.clientY, drag.overflowY)))
+}
+
+function tutupFontMenu() {
+  fontMenu.hidden = true
+  fontMenuField = null
+  for (const button of document.querySelectorAll('.font-btn')) button.setAttribute('aria-expanded', 'false')
+}
+
+function muatFont(id) {
+  const font = formalFonts[id]
+  if (!font || !document.fonts || !/^(DM Sans|Manrope)$/.test(font.name)) return
+  document.fonts.load('700 40px "' + font.name + '"').then(() => render()).catch(() => {})
+}
+
+function pilihFont(kunci, id) {
+  if (id === 'dm') delete fonts[kunci]
+  else fonts = { ...fonts, [kunci]: id }
+  tutupFontMenu()
+  syncFontButtons()
+  muatFont(id)
   render()
-})
-imageDrag.addEventListener('lostpointercapture', () => {
-  drag = null
   save()
+}
+
+function bukaFontMenu(button) {
+  const kunci = button.dataset.fontFor
+  fontMenuField = kunci
+  fontMenu.replaceChildren()
+  const grup = new Map()
+  for (const [id, font] of Object.entries(formalFonts)) {
+    if (!grup.has(font.group)) grup.set(font.group, [])
+    grup.get(font.group).push([id, font])
+  }
+  for (const [namaGrup, daftar] of grup) {
+    const judul = document.createElement('h4')
+    judul.textContent = namaGrup
+    fontMenu.append(judul)
+    for (const [id, font] of daftar) {
+      const opsi = document.createElement('button')
+      opsi.type = 'button'
+      opsi.setAttribute('role', 'menuitemradio')
+      opsi.setAttribute('aria-checked', String((fonts[kunci] || 'dm') === id))
+      opsi.style.fontFamily = font.stack
+      opsi.append(document.createTextNode(font.name))
+      const kecil = document.createElement('small')
+      kecil.textContent = id === 'dm' ? 'bawaan' : ''
+      opsi.append(kecil)
+      opsi.addEventListener('click', () => pilihFont(kunci, id))
+      fontMenu.append(opsi)
+    }
+  }
+  fontMenu.hidden = false
+  const kotak = button.getBoundingClientRect()
+  const lebar = 250
+  fontMenu.style.left = Math.min(window.innerWidth - lebar - 12, Math.max(12, kotak.right - lebar)) + 'px'
+  fontMenu.style.top = (kotak.bottom + window.scrollY + 6) + 'px'
+  button.setAttribute('aria-expanded', 'true')
+}
+
+for (const button of document.querySelectorAll('.font-btn')) {
+  button.setAttribute('aria-haspopup', 'true')
+  button.setAttribute('aria-expanded', 'false')
+  button.addEventListener('click', event => {
+    event.preventDefault()
+    event.stopPropagation()
+    if (fontMenuField === button.dataset.fontFor && !fontMenu.hidden) tutupFontMenu()
+    else bukaFontMenu(button)
+  })
+}
+document.addEventListener('click', event => {
+  if (fontMenu.hidden) return
+  if (event.target.closest('#font-menu') || event.target.closest('.font-btn')) return
+  tutupFontMenu()
 })
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') tutupFontMenu()
+})
+window.addEventListener('resize', () => {
+  if (!fontMenu.hidden) tutupFontMenu()
+})
+syncFontButtons()
 
 const addBackground = document.querySelector('#add-background')
 addBackground.addEventListener('click', async () => {
@@ -1394,14 +1632,12 @@ addBackground.addEventListener('click', async () => {
     const ratio = Math.min(1, 1400 / Math.max(image.width, image.height))
     scaled.width = Math.max(1, Math.round(image.width * ratio))
     scaled.height = Math.max(1, Math.round(image.height * ratio))
-    const scaledContext = scaled.getContext('2d', { alpha: false })
-    scaledContext.fillStyle = '#122f54'
-    scaledContext.fillRect(0, 0, scaled.width, scaled.height)
+    const scaledContext = scaled.getContext('2d')
     scaledContext.drawImage(image, 0, 0, scaled.width, scaled.height)
     const entry = {
       id: 'custom-' + buatId(),
       name: file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Latar sendiri',
-      source: scaled.toDataURL('image/jpeg', .82)
+      source: scaled.toDataURL('image/webp', .88)
     }
     const next = [...customTemplates, entry]
     if (!storeLocal(backgroundsKey, next)) {
@@ -1521,10 +1757,9 @@ document.querySelector('#reset').addEventListener('click', () => {
   areaMenu.value = ''
   areaMaster.hidden = true
   showAreaMasterStatus('')
-  manualRevision += 1
   manualImage = null
-  manualInput.value = ''
-  manualStatus.textContent = 'Unggah gambar, lalu geser langsung di pratinjau atau gunakan penggeser di bawah.'
+  baseColor = ''
+  baseColorInput.value = '#0b2c4d'
   for (const [index, button] of removePhotos.entries()) {
     photos[index] = null
     photoRevisions[index] += 1
