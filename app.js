@@ -272,6 +272,7 @@ function renderBlock(id, x, y, width, height, draw) {
 }
 
 let logo = null
+let logoBadge = null
 
 function readStorage(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
@@ -964,14 +965,12 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
   save()
 })
 
-const logoInput = document.querySelector('#logo')
-const removeLogo = document.querySelector('#remove-logo')
-const logoState = document.querySelector('#logo-state')
+/* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
+const LOGO_PATH = 'logo-perumda.png'
+const LOGO_BADGE_PATH = 'logo-perumda-badge.png'
 
 function setLogo(image) {
   logo = image
-  removeLogo.hidden = !image
-  logoState.textContent = image ? 'Logo tampil di poster serta pada helm dan seragam yang terlihat di ilustrasi.' : 'Unggah logo resmi agar tampil di poster serta pada helm dan seragam yang terlihat di ilustrasi.'
   render()
 }
 
@@ -1003,41 +1002,6 @@ function decodeImage(source) {
   })
 }
 
-let logoRevision = 0
-logoInput.addEventListener('change', async () => {
-  const file = logoInput.files[0]
-  if (!file) return
-  const revision = ++logoRevision
-  if (file.type !== 'image/png') {
-    status.textContent = 'Pilih berkas logo dalam format PNG.'
-    logoInput.value = ''
-    return
-  }
-  const url = URL.createObjectURL(file)
-  try {
-    const image = await decodeImage(url)
-    if (revision !== logoRevision) return
-    const scaled = document.createElement('canvas')
-    const ratio = Math.min(1, 384 / Math.max(image.width, image.height))
-    scaled.width = Math.max(1, Math.round(image.width * ratio))
-    scaled.height = Math.max(1, Math.round(image.height * ratio))
-    scaled.getContext('2d').drawImage(image, 0, 0, scaled.width, scaled.height)
-    setLogo(image)
-    if (storeLocal('kabar-air-logo', scaled.toDataURL('image/png'))) {
-      status.textContent = 'Logo disimpan di browser ini.'
-    }
-  } catch {
-    status.textContent = 'Logo tidak dapat dibuka. Pilih berkas PNG lain.'
-  } finally {
-    URL.revokeObjectURL(url)
-    logoInput.value = ''
-  }
-})
-
-removeLogo.addEventListener('click', () => {
-  logoRevision += 1
-  if (storeLocal('kabar-air-logo', null)) setLogo(null)
-})
 motion.addEventListener('change', render)
 
 const gallery = document.querySelector('#background-gallery')
@@ -1820,10 +1784,14 @@ showCustomTemplates()
 update()
 if (customTemplates.some(entry => entry.id === storedTemplate)) selectCustom(storedTemplate)
 
-const storedLogo = readStorage('kabar-air-logo', null)
-if (storedLogo) decodeImage(storedLogo).then(image => {
-  if (logoRevision === 0) setLogo(image)
-}).catch(() => {})
+/* Logo paten selalu dipakai; kunci logo lama di browser dibersihkan agar tidak menimpa. */
+storeLocal('kabar-air-logo', null)
+function loadFixedLogo(attempt = 0) {
+  decodeImage(LOGO_PATH + (attempt ? '?retry=' + attempt : '')).then(image => setLogo(image))
+    .catch(() => { if (attempt < 2) setTimeout(() => loadFixedLogo(attempt + 1), 1200) })
+}
+loadFixedLogo()
+decodeImage(LOGO_BADGE_PATH).then(image => { logoBadge = image; render() }).catch(() => {})
 
 const pendingArtwork = new Map()
 
