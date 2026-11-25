@@ -724,7 +724,8 @@ function render() {
     const y = image ? (logicalHeight - artHeight) / 2 : logicalHeight - artHeight
     renderBlock(layer.id, x, y, width, artHeight, () => {
       if (image) {
-        ctx.drawImage(image, x, y, width, artHeight)
+        drawFeathered(ctx, image, x, y, width, artHeight,
+          { left: width * .07, right: width * .07, top: artHeight * .07, bottom: artHeight * .07 })
       } else {
         ctx.save()
         ctx.translate(x, y)

@@ -53,18 +53,21 @@ function paintRepairHero(context, backdrop, image, logo, f) {
     return
   }
   const height = 530
-  const leftFade = context.createLinearGradient(0, 0, 900, 0)
   const [dark, bright] = backdrop.colors
+  /* Fade dibuat panjang dan bertahap supaya tepi foto tidak terlihat sebagai potongan. */
+  const leftFade = context.createLinearGradient(0, 0, 1010, 0)
   leftFade.addColorStop(0, dark)
-  leftFade.addColorStop(.36, dark + 'f2')
-  leftFade.addColorStop(.72, dark + '42')
+  leftFade.addColorStop(.3, dark + 'e6')
+  leftFade.addColorStop(.58, dark + '73')
+  leftFade.addColorStop(.82, dark + '26')
   leftFade.addColorStop(1, dark + '00')
-  const bottomFade = context.createLinearGradient(0, 370, 0, height)
+  const bottomFade = context.createLinearGradient(0, 340, 0, height)
   bottomFade.addColorStop(0, bright + '00')
+  bottomFade.addColorStop(.55, dark + '99')
   bottomFade.addColorStop(1, dark)
 
   if (image) {
-    coverImage(context, image, 245, 0, 835, height)
+    drawFeathered(context, image, 245, 0, 835, height, { left: 620, bottom: 210, top: 46 })
   } else {
     if (backdrop.electrical) paintElectricSymbol(context)
     else paintRepairPipe(context)

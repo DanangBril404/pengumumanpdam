@@ -40,6 +40,46 @@ function coverImage(context, image, x, y, width, height) {
     height * image.height / frame.height, x, y, width, height)
 }
 
+/* Gambar dengan tepi melembut (feather) supaya foto tidak tampak seperti kotak
+   yang ditempel: alpha diturunkan bertahap pada sisi yang diminta. */
+const featherLayer = document.createElement('canvas')
+
+function drawFeathered(context, image, x, y, width, height, edges = {}) {
+  const w = Math.max(1, Math.round(width))
+  const h = Math.max(1, Math.round(height))
+  if (featherLayer.width !== w) featherLayer.width = w
+  if (featherLayer.height !== h) featherLayer.height = h
+  const layer = featherLayer.getContext('2d')
+  layer.globalCompositeOperation = 'source-over'
+  layer.clearRect(0, 0, w, h)
+  const frame = coverImageFrame(image, 0, 0, w, h)
+  layer.drawImage(image, (0 - frame.x) * image.width / frame.width,
+    (0 - frame.y) * image.height / frame.height, w * image.width / frame.width,
+    h * image.height / frame.height, 0, 0, w, h)
+  layer.globalCompositeOperation = 'destination-in'
+  layer.fillStyle = '#ffffff'
+  layer.fillRect(0, 0, w, h)
+  for (const [sisi, panjang] of Object.entries(edges)) {
+    const lebar = Math.min(Math.max(1, Number(panjang) || 0), sisi === 'left' || sisi === 'right' ? w : h)
+    if (lebar < 2) continue
+    let gradient
+    if (sisi === 'left') gradient = layer.createLinearGradient(0, 0, lebar, 0)
+    else if (sisi === 'right') gradient = layer.createLinearGradient(w, 0, w - lebar, 0)
+    else if (sisi === 'top') gradient = layer.createLinearGradient(0, 0, 0, lebar)
+    else gradient = layer.createLinearGradient(0, h, 0, h - lebar)
+    gradient.addColorStop(0, '#ffffff00')
+    gradient.addColorStop(.12, '#ffffff0f')
+    gradient.addColorStop(.3, '#ffffff4d')
+    gradient.addColorStop(.55, '#ffffffb8')
+    gradient.addColorStop(.8, '#fffffff2')
+    gradient.addColorStop(1, '#ffffff')
+    layer.fillStyle = gradient
+    layer.fillRect(0, 0, w, h)
+  }
+  layer.globalCompositeOperation = 'source-over'
+  context.drawImage(featherLayer, x, y, width, height)
+}
+
 function paintBackdrop(context, height, backdrop, image = null, baseColor = '', width = 1080) {
   const dasar = baseColor ? shadeHex(baseColor, -0.28) : backdrop.colors[0]
   const terang = baseColor || backdrop.colors[1]
