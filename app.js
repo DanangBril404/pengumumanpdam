@@ -28,7 +28,7 @@ const formalFonts = {
 const fontLabels = {
   title: 'Judul', extra: 'Teks tambahan', note: 'Rincian penyebab',
   area: 'Wilayah terdampak', advice: 'Imbauan pelanggan', adviceTitle: 'Judul imbauan',
-  caption1: 'Keterangan foto 1', caption2: 'Keterangan foto 2'
+  caption1: 'Keterangan media 1', caption2: 'Keterangan media 2'
 }
 const canvas = document.querySelector('#poster')
 const ctx = canvas.getContext('2d')
@@ -571,7 +571,7 @@ function drawPhoto(image, x, y, width, height, index) {
   rounded(x, y, width, height, 22, '#e9f4fe')
   if (!image) {
     ctx.textAlign = 'center'
-    label('Foto pekerjaan ' + (index + 1), x + width / 2, y + height / 2 + 9, 28, '#294b6e')
+    label('Media pekerjaan ' + (index + 1), x + width / 2, y + height / 2 + 9, 28, '#294b6e')
     ctx.textAlign = 'start'
     return
   }
@@ -608,7 +608,7 @@ function drawDocumentation(f, x, y, count, height, repair, accent, docWidth = do
       if (repair) label(String(index + 1).padStart(2, '0'), photoX + 29, top + height - 25, 17, '#17283c', 800)
       const inset = repair ? 76 : 24
       setFont('caption' + (index + 1))
-      block(caption || 'Foto pekerjaan ' + (index + 1), photoX + inset, top + height - 24,
+      block(caption || 'Media pekerjaan ' + (index + 1), photoX + inset, top + height - 24,
         width - inset - 22, 1, 23, '#ffffff', 600)
     }
   }
@@ -1716,7 +1716,7 @@ const asetBerhuruf = new Set(['title', 'extra', 'agency', 'banner', 'cause', 'sc
 
 /* Aset yang punya kotak (kartu/tabel) sehingga lebar/tingginya bisa diatur. */
 const asetBerkotak = new Set(['cause', 'schedule', 'areas', 'advice', 'photos', 'socials'])
-const labelAset = { ...movableLabels, photos: 'Foto dokumentasi' }
+const labelAset = { ...movableLabels, photos: 'Media dokumentasi' }
 
 function showDecorationStatus(message) {
   decorationStatus.hidden = !message
@@ -1755,15 +1755,15 @@ function syncLayerSize() {
   layerOutlineWidth.value = String(gaya.outlineWidth || 2)
   layerOutlineValue.textContent = String(gaya.outlineWidth || 2)
   layerSizeHint.textContent = !nama
-    ? 'Pilih tabel di panel Layer (Penyebab, Jadwal, Wilayah, Imbauan, Foto, Media sosial) atau hiasan. Lebar/Tinggi hanya mengubah kotaknya — huruf dan ukurannya tetap.'
-    : !bisa ? 'Aset ini teks tanpa kotak. Pilih tabel Penyebab, Jadwal, Wilayah, Imbauan, Foto dokumentasi, atau Media sosial.'
+    ? 'Pilih tabel di panel Layer (Penyebab, Jadwal, Wilayah, Imbauan, Media, Media sosial) atau hiasan. Lebar/Tinggi hanya mengubah kotaknya — huruf dan ukurannya tetap.'
+    : !bisa ? 'Aset ini teks tanpa kotak. Pilih tabel Penyebab, Jadwal, Wilayah, Imbauan, Media dokumentasi, atau Media sosial.'
       : terkunci ? 'Aset terkunci — buka kunci di panel Layer untuk mengubah ukuran.'
         : 'Lebar/Tinggi hanya mengubah kotak tabel — huruf dan ukurannya tetap. Bila teks terpotong, naikkan Tinggi.'
 }
 
 function showLayerPanel() {
   layerList.replaceChildren()
-  const fixed = [['artwork', 'Ilustrasi dan latar gambar'], ...Object.entries(movableLabels), ['photos', 'Foto dokumentasi']]
+  const fixed = [['artwork', 'Ilustrasi dan latar gambar'], ...Object.entries(movableLabels), ['photos', 'Media dokumentasi']]
   for (const [id, name] of fixed) addLayerRow(id, name)
   for (const layer of [...decorationLayers].reverse()) {
     addLayerRow(layer.id, layer.name || decorationNames[layer.type], layer)
@@ -2538,7 +2538,7 @@ for (const [index, input] of photoInputs.entries()) {
       if (revision !== photoRevisions[index]) { lepasVideo(media); return }
       lepasVideo(photos[index])
       photos[index] = media
-      mediaStatus.textContent = (berkasVideo ? 'Video ' : 'Foto ') + (index + 1) + ' ditambahkan.' +
+      mediaStatus.textContent = 'Media ' + (index + 1) + ' (' + (berkasVideo ? 'video' : 'foto') + ') ditambahkan.' +
         (berkasVideo ? ' Tombol Unduh Video aktif.' : ' Media tersedia selama editor terbuka.')
       render()
       perbaruiKontrolVideo()

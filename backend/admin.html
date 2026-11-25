@@ -95,13 +95,16 @@ const KIND = {
   jenis: { label: 'Jenis Pengumuman', hint: 'Pilihan pada kolom “Jenis”. Di aplikasi hanya bisa dipilih.' },
   penyebab: { label: 'Penyebab Gangguan', hint: 'Pilihan penyebab + rincian yang otomatis mengisi kolom rincian.' },
   wilayah: { label: 'Pilihan Wilayah', hint: 'Daftar wilayah siap pakai (satu wilayah per baris).' },
-  instansi: { label: 'Identitas & Video', hint: 'Nama perusahaan, logo perusahaan, dan backsound MP3 untuk video pengumuman.' }
+  identitas: { label: 'Identitas', hint: 'Nama perusahaan dan pustaka logo (maksimal 10). Logo bertanda “Dipakai” tampil di poster.' },
+  video: { label: 'Video', hint: 'Pustaka MP3 backsound (maksimal 30) yang bisa dipilih pengguna di frontend saat mengunggah video.' }
 }
 let aktif = 'hiasan'
 let editId = null
 let cache = {}
 let pipeArt = []
-let settings = { name: 'Perumda Air Minum Kota Magelang', logo: '', backsound: '', backsoundName: '' }
+let settings = { name: 'Perumda Air Minum Kota Magelang', logo: '', logos: [], backsound: '', backsoundName: '', audios: [] }
+const MAKS_LOGO = 10
+const MAKS_AUDIO = 30
 
 const $ = (s) => document.querySelector(s)
 const el = (tag, props = {}, ...anak) => {
@@ -261,31 +264,141 @@ function fieldGambar(nilai, onChange, { alamat = true } = {}) {
   return bungkus
 }
 
-/* Tab "Identitas & Video": nama perusahaan, logo, dan backsound MP3 video. */
-function formInstansi(form) {
+/* Tab "Identitas": nama perusahaan + pustaka logo (maks 10). */
+function formIdentitas(form) {
   const nama = el('input', { value: settings.name || '', maxlength: 80 })
   form.append(el('label', {}, 'Nama perusahaan (tampil di poster & teks pengumuman)', nama))
   form.__nama = nama
-  form.__body = {
-    logo: settings.logo || '',
-    backsound: settings.backsound || '',
-    backsoundName: settings.backsoundName || ''
+  form.__logos = (settings.logos || []).map(item => ({ ...item }))
+  form.__logo = settings.logo || ''
+
+  const galeri = el('div', { className: 'item-list' })
+  const info = el('p', { className: 'hint' })
+  const berkas = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' })
+
+  function gambarGaleri() {
+    galeri.replaceChildren()
+    if (!form.__logos.length) {
+      galeri.append(el('p', { className: 'hint', textContent: 'Belum ada logo. Unggah logo perusahaan di bawah.' }))
+    }
+    form.__logos.forEach((item, index) => {
+      const baris = el('div', { className: 'item' })
+      baris.append(el('img', { src: item.url, alt: '' }))
+      const judul = el('div', { className: 'nama' })
+      judul.append(el('b', { textContent: item.name || 'logo ' + (index + 1) }))
+      judul.append(el('small', { textContent: item.url === form.__logo ? 'Dipakai di poster' : 'Tersimpan' }))
+      const pakai = el('button', {
+        className: 'btn small', type: 'button',
+        textContent: item.url === form.__logo ? '✓ Dipakai' : 'Pakai'
+      })
+      pakai.addEventListener('click', () => {
+        form.__logo = item.url
+        gambarGaleri()
+        pesan('Logo dipilih. Tekan Simpan identitas.', 'ok')
+      })
+      const hapus = el('button', { className: 'btn small danger', type: 'button', textContent: 'Hapus' })
+      hapus.addEventListener('click', () => {
+        if (!confirm('Hapus logo "' + (item.name || 'ini') + '" dari pustaka?')) return
+        form.__logos.splice(index, 1)
+        if (form.__logo === item.url) form.__logo = form.__logos[0] ? form.__logos[0].url : ''
+        gambarGaleri()
+        pesan('Logo dihapus dari daftar. Tekan Simpan.', 'ok')
+      })
+      baris.append(judul, pakai, hapus)
+      galeri.append(baris)
+    })
+    info.textContent = form.__logos.length + ' dari ' + MAKS_LOGO + ' logo tersimpan.'
   }
-  form.append(fieldGambar(form.__body.logo, (v) => { form.__body.logo = v }, { alamat: false }))
-  const berkas = el('input', { type: 'file', accept: 'audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,audio/ogg' })
-  const info = el('p', {
-    className: 'hint',
-    textContent: form.__body.backsoundName ? 'Backsound: ' + form.__body.backsoundName : 'Belum ada backsound video.'
-  })
-  const audio = el('audio', { controls: true, src: form.__body.backsound || '' })
-  audio.style.width = '100%'
+
   berkas.addEventListener('change', async () => {
     const file = berkas.files[0]
     if (!file) return
-    if (!/^audio\//.test(file.type)) { pesan('Pilih berkas MP3/M4A/WAV/OGG.', 'err'); return }
-    if (file.size > 8 * 1024 * 1024) { pesan('Ukuran audio maksimal 8 MB.', 'err'); return }
+    if (form.__logos.length >= MAKS_LOGO) {
+      pesan('Pustaka logo sudah penuh (maksimal ' + MAKS_LOGO + ').', 'err')
+      berkas.value = ''
+      return
+    }
     try {
-      pesan('Mengunggah backsound…')
+      pesan('Mengunggah logo…')
+      const gambar = await siapkanGambar(file, 900)
+      const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: gambar.dataUrl }) })
+      form.__logos.push({ url: hasil.url, name: file.name })
+      if (!form.__logo) form.__logo = hasil.url
+      berkas.value = ''
+      gambarGaleri()
+      pesan('Logo terunggah. Tekan Simpan identitas.', 'ok')
+    } catch (error) { pesan(error.message, 'err') }
+  })
+
+  gambarGaleri()
+  form.append(
+    el('label', {}, 'Tambah logo (PNG/JPG/WebP — maksimal ' + MAKS_LOGO + ' logo)', berkas),
+    info, galeri
+  )
+  $('#simpan').textContent = 'Simpan identitas'
+  editId = null
+}
+
+/* Tab "Video": pustaka MP3 backsound (maks 30) untuk dipilih di frontend. */
+function formVideo(form) {
+  form.__audios = (settings.audios || []).map(item => ({ ...item }))
+  form.__backsound = settings.backsound || ''
+  form.__backsoundName = settings.backsoundName || ''
+  const daftar = el('div', { className: 'item-list' })
+  const info = el('p', { className: 'hint' })
+  const berkas = el('input', { type: 'file', accept: 'audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,audio/ogg' })
+
+  function gambarDaftar() {
+    daftar.replaceChildren()
+    if (!form.__audios.length) {
+      daftar.append(el('p', { className: 'hint', textContent: 'Belum ada MP3. Unggah backsound di bawah.' }))
+    }
+    form.__audios.forEach((item, index) => {
+      const baris = el('div', { className: 'item' })
+      const judul = el('div', { className: 'nama' })
+      judul.append(el('b', { textContent: item.name || 'MP3 ' + (index + 1) }))
+      judul.append(el('small', { textContent: item.url === form.__backsound ? 'Backsound default' : 'Tersimpan' }))
+      const audio = el('audio', { controls: true, src: item.url })
+      audio.style.width = '100%'
+      const pakai = el('button', {
+        className: 'btn small', type: 'button',
+        textContent: item.url === form.__backsound ? '✓ Default' : 'Jadikan default'
+      })
+      pakai.addEventListener('click', () => {
+        form.__backsound = item.url
+        form.__backsoundName = item.name || ''
+        gambarDaftar()
+        pesan('MP3 dipilih sebagai backsound default. Tekan Simpan.', 'ok')
+      })
+      const hapus = el('button', { className: 'btn small danger', type: 'button', textContent: 'Hapus' })
+      hapus.addEventListener('click', () => {
+        if (!confirm('Hapus MP3 "' + (item.name || 'ini') + '" dari pustaka?')) return
+        form.__audios.splice(index, 1)
+        if (form.__backsound === item.url) {
+          form.__backsound = ''
+          form.__backsoundName = ''
+        }
+        gambarDaftar()
+        pesan('MP3 dihapus dari daftar. Tekan Simpan.', 'ok')
+      })
+      baris.append(judul, pakai, hapus, audio)
+      daftar.append(baris)
+    })
+    info.textContent = form.__audios.length + ' dari ' + MAKS_AUDIO + ' MP3 tersimpan.'
+  }
+
+  berkas.addEventListener('change', async () => {
+    const file = berkas.files[0]
+    if (!file) return
+    if (!/^audio\//.test(file.type)) { pesan('Pilih berkas MP3/M4A/WAV/OGG.', 'err'); berkas.value = ''; return }
+    if (file.size > 8 * 1024 * 1024) { pesan('Ukuran audio maksimal 8 MB.', 'err'); berkas.value = ''; return }
+    if (form.__audios.length >= MAKS_AUDIO) {
+      pesan('Pustaka MP3 sudah penuh (maksimal ' + MAKS_AUDIO + ').', 'err')
+      berkas.value = ''
+      return
+    }
+    try {
+      pesan('Mengunggah MP3…')
       const dataUrl = await new Promise((res, rej) => {
         const pembaca = new FileReader()
         pembaca.onerror = () => rej(new Error('Gagal membaca berkas audio.'))
@@ -293,27 +406,24 @@ function formInstansi(form) {
         pembaca.readAsDataURL(file)
       })
       const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: dataUrl }) })
-      form.__body.backsound = hasil.url
-      form.__body.backsoundName = file.name
-      audio.src = hasil.url
-      info.textContent = 'Backsound: ' + file.name
-      pesan('Backsound terunggah. Tekan Simpan untuk mengaktifkan.', 'ok')
+      form.__audios.push({ url: hasil.url, name: file.name })
+      if (!form.__backsound) {
+        form.__backsound = hasil.url
+        form.__backsoundName = file.name
+      }
+      berkas.value = ''
+      gambarDaftar()
+      pesan('MP3 terunggah. Tekan Simpan pustaka video.', 'ok')
     } catch (error) { pesan(error.message, 'err') }
   })
-  form.append(el('label', {}, 'Unggah backsound MP3 untuk video (maks 8 MB)', berkas), info, audio)
-  const hapusAudio = el('button', { className: 'btn small danger', type: 'button', textContent: 'Hapus backsound' })
-  hapusAudio.addEventListener('click', () => {
-    form.__body.backsound = ''
-    form.__body.backsoundName = ''
-    audio.removeAttribute('src')
-    info.textContent = 'Belum ada backsound video.'
-    pesan('Backsound dikosongkan. Tekan Simpan.', 'ok')
-  })
+
+  gambarDaftar()
   form.append(
-    el('p', { className: 'hint', textContent: 'Video pengumuman selalu 1080 × 1920 px (9:16) dan memakai backsound ini bila tersedia.' }),
-    hapusAudio
+    el('label', {}, 'Tambah MP3 backsound (maks 8 MB per berkas — maksimal ' + MAKS_AUDIO + ' berkas)', berkas),
+    info, daftar,
+    el('p', { className: 'hint', textContent: 'MP3 di pustaka ini otomatis muncul di frontend saat pengguna mengunggah video pekerjaan, untuk dipilih sebagai backsound.' })
   )
-  $('#simpan').textContent = 'Simpan identitas'
+  $('#simpan').textContent = 'Simpan pustaka video'
   editId = null
 }
 
@@ -323,7 +433,8 @@ function gambarForm(item = null) {
   $('#petunjuk').textContent = info.hint
   const form = $('#form')
   form.replaceChildren()
-  if (aktif === 'instansi') return formInstansi(form)
+  if (aktif === 'identitas') return formIdentitas(form)
+  if (aktif === 'video') return formVideo(form)
   const nama = el('input', { value: item ? item.name : '', maxlength: 90 })
   form.append(el('label', {}, aktif === 'jenis' ? 'Nama jenis' : 'Nama', nama))
   form.dataset.nama = ''
@@ -418,19 +529,22 @@ function gambarDaftar() {
 
 $('#simpan').addEventListener('click', async () => {
   const form = $('#form')
-  if (aktif === 'instansi') {
+  if (aktif === 'identitas' || aktif === 'video') {
     try {
-      pesan('Menyimpan identitas…')
-      await api('/api/settings', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: (form.__nama.value || '').trim(),
-          logo: form.__body.logo || '',
-          backsound: form.__body.backsound || '',
-          backsoundName: form.__body.backsoundName || ''
-        })
-      })
-      pesan('Identitas & backsound tersimpan.', 'ok')
+      pesan(aktif === 'identitas' ? 'Menyimpan identitas…' : 'Menyimpan pustaka video…')
+      const isi = aktif === 'identitas'
+        ? {
+            name: (form.__nama.value || '').trim(),
+            logo: form.__logo || '',
+            logos: form.__logos || []
+          }
+        : {
+            audios: form.__audios || [],
+            backsound: form.__backsound || '',
+            backsoundName: form.__backsoundName || ''
+          }
+      await api('/api/settings', { method: 'POST', body: JSON.stringify(isi) })
+      pesan(aktif === 'identitas' ? 'Identitas tersimpan.' : 'Pustaka backsound tersimpan.', 'ok')
       await muat()
     } catch (error) { pesan(error.message, 'err') }
     return

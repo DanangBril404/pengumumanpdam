@@ -244,36 +244,139 @@ def payload_settings():
     data = settings_baca()
     data['logo'] = media_url(data['logo'])
     data['backsound'] = media_url(data['backsound'])
+    data['logos'] = [{'url': media_url(item['url']), 'name': item['name']} for item in data['logos']]
+    data['audios'] = [{'url': media_url(item['url']), 'name': item['name']} for item in data['audios']]
     return data
 
 
+MAX_LOGO = 10
+MAX_AUDIO = 30
+
+
+def _bersih_media(nilai):
+    if not isinstance(nilai, str):
+        return ''
+    nilai = tanpa_versi(nilai.strip())
+    return nilai if nilai.startswith('/api/media/') else ''
+
+
+def _daftar_media(nilai, maks):
+    """Rapikan daftar logo/MP3: hanya alamat /api/media/, tanpa duplikat, dibatasi."""
+    hasil = []
+    if not isinstance(nilai, list):
+        return hasil
+    terpakai = set()
+    for item in nilai:
+        if not isinstance(item, dict):
+            continue
+        url = _bersih_media(item.get('url'))
+        if not url or url in terpakai:
+            continue
+        terpakai.add(url)
+        nama = str(item.get('name') or '').strip()[:80] or os.path.basename(urllib_unquote(url))
+        hasil.append({'url': url, 'name': nama})
+        if len(hasil) >= maks:
+            break
+    return hasil
+
+
+def _nama_dari_berkas(nama):
+    label = re.sub(r'^\d{14}-[0-9a-f]{8}-', '', nama)
+    return os.path.splitext(label)[0].replace('-', ' ').strip() or nama
+
+
 def settings_baca():
-    """Identitas instansi + backsound video (disimpan di tabel meta)."""
-    bawaan = {'name': 'Perumda Air Minum Kota Magelang', 'logo': '', 'backsound': '', 'backsoundName': ''}
+    """Identitas instansi (nama + pustaka logo) dan pustaka backsound video."""
+    bawaan = {
+        'name': 'Perumda Air Minum Kota Magelang', 'logo': '', 'logos': [],
+        'backsound': '', 'backsoundName': '', 'audios': [],
+        'logosInit': False, 'audiosInit': False
+    }
     mentah = meta(SETTINGS_KEY)
-    if not mentah:
-        return bawaan
-    try:
-        data = json.loads(mentah)
-    except ValueError:
-        return bawaan
+    data = {}
+    if mentah:
+        try:
+            data = json.loads(mentah)
+        except ValueError:
+            data = {}
     if not isinstance(data, dict):
-        return bawaan
+        data = {}
     hasil = dict(bawaan)
-    for kunci in bawaan:
-        if isinstance(data.get(kunci), str):
-            hasil[kunci] = data[kunci]
+    if isinstance(data.get('name'), str) and data['name'].strip():
+        hasil['name'] = data['name'].strip()
+    if isinstance(data.get('backsoundName'), str):
+        hasil['backsoundName'] = data['backsoundName']
+    hasil['logo'] = _bersih_media(data.get('logo'))
+    hasil['backsound'] = _bersih_media(data.get('backsound'))
+    hasil['logos'] = _daftar_media(data.get('logos'), MAX_LOGO)
+    hasil['audios'] = _daftar_media(data.get('audios'), MAX_AUDIO)
+    hasil['logosInit'] = bool(data.get('logosInit'))
+    hasil['audiosInit'] = bool(data.get('audiosInit'))
+
+    berubah = False
+    if not hasil['logosInit']:
+        if hasil['logo']:
+            hasil['logos'] = [{'url': hasil['logo'],
+                               'name': _nama_dari_berkas(os.path.basename(urllib_unquote(hasil['logo'])))}]
+        hasil['logosInit'] = True
+        berubah = True
+    if not hasil['audiosInit']:
+        audios = []
+        if os.path.isdir(UPLOAD_DIR):
+            for nama in sorted(os.listdir(UPLOAD_DIR)):
+                if os.path.splitext(nama)[1].lower() not in EKST_AUDIO:
+                    continue
+                audios.append({'url': '/api/media/' + nama, 'name': _nama_dari_berkas(nama)})
+                if len(audios) >= MAX_AUDIO:
+                    break
+        hasil['audios'] = audios
+        hasil['audiosInit'] = True
+        berubah = True
+    # Logo aktif & backsound default selalu ada di daftar pustaka.
+    if hasil['logo'] and not any(item['url'] == hasil['logo'] for item in hasil['logos']) \
+            and len(hasil['logos']) < MAX_LOGO:
+        hasil['logos'].insert(0, {'url': hasil['logo'],
+                                  'name': _nama_dari_berkas(os.path.basename(urllib_unquote(hasil['logo'])))})
+        berubah = True
+    if hasil['backsound'] and not any(item['url'] == hasil['backsound'] for item in hasil['audios']) \
+            and len(hasil['audios']) < MAX_AUDIO:
+        hasil['audios'].insert(0, {'url': hasil['backsound'],
+                                   'name': hasil['backsoundName'] or _nama_dari_berkas(
+                                       os.path.basename(urllib_unquote(hasil['backsound'])))})
+        berubah = True
+    if berubah:
+        meta(SETTINGS_KEY, json.dumps(hasil, ensure_ascii=False))
     return hasil
 
 
 def settings_tulis(data):
     sekarang = settings_baca()
-    for kunci in ('name', 'logo', 'backsound', 'backsoundName'):
-        if isinstance(data.get(kunci), str):
-            nilai = data[kunci].strip() if kunci == 'name' else data[kunci]
-            sekarang[kunci] = tanpa_versi(nilai) if kunci in ('logo', 'backsound') else nilai
-    if not sekarang['name']:
-        sekarang['name'] = 'Perumda Air Minum Kota Magelang'
+    if isinstance(data.get('name'), str):
+        nama = data['name'].strip()
+        sekarang['name'] = nama or 'Perumda Air Minum Kota Magelang'
+    if 'logos' in data:
+        sekarang['logos'] = _daftar_media(data.get('logos'), MAX_LOGO)
+        sekarang['logosInit'] = True
+    if 'audios' in data:
+        sekarang['audios'] = _daftar_media(data.get('audios'), MAX_AUDIO)
+        sekarang['audiosInit'] = True
+    if isinstance(data.get('logo'), str):
+        logo = _bersih_media(data['logo'])
+        sekarang['logo'] = logo
+        if logo and not any(item['url'] == logo for item in sekarang['logos']) \
+                and len(sekarang['logos']) < MAX_LOGO:
+            sekarang['logos'].insert(0, {'url': logo,
+                                         'name': _nama_dari_berkas(os.path.basename(urllib_unquote(logo)))})
+    if isinstance(data.get('backsound'), str):
+        backsound = _bersih_media(data['backsound'])
+        sekarang['backsound'] = backsound
+        if isinstance(data.get('backsoundName'), str):
+            sekarang['backsoundName'] = data['backsoundName'][:120]
+        if backsound and not any(item['url'] == backsound for item in sekarang['audios']) \
+                and len(sekarang['audios']) < MAX_AUDIO:
+            sekarang['audios'].insert(0, {'url': backsound,
+                                          'name': sekarang['backsoundName'] or _nama_dari_berkas(
+                                              os.path.basename(urllib_unquote(backsound)))})
     meta(SETTINGS_KEY, json.dumps(sekarang, ensure_ascii=False))
     return sekarang
 
@@ -282,26 +385,18 @@ EKST_AUDIO = ('.mp3', '.m4a', '.aac', '.wav', '.ogg')
 
 
 def daftar_audio():
-    """Daftar semua MP3/audio yang pernah diunggah lewat back office."""
+    """Daftar MP3 backsound yang tersimpan di menu Video (maks 30)."""
     hasil = []
-    if not os.path.isdir(UPLOAD_DIR):
-        return hasil
-    for nama in os.listdir(UPLOAD_DIR):
-        if os.path.splitext(nama)[1].lower() not in EKST_AUDIO:
-            continue
-        lokasi = os.path.join(UPLOAD_DIR, nama)
-        if not os.path.isfile(lokasi):
-            continue
-        label = re.sub(r'^\d{14}-[0-9a-f]{8}-', '', nama)
-        label = os.path.splitext(label)[0].replace('-', ' ').strip() or nama
+    for item in settings_baca()['audios']:
+        berkas = os.path.basename(urllib_unquote(item['url']))
+        lokasi = os.path.join(UPLOAD_DIR, berkas)
         hasil.append({
-            'name': label,
-            'file': nama,
-            'url': '/api/media/' + nama,
-            'size': os.path.getsize(lokasi),
-            'mtime': int(os.path.getmtime(lokasi))
+            'name': item['name'],
+            'file': berkas,
+            'url': media_url(item['url']),
+            'size': os.path.getsize(lokasi) if os.path.isfile(lokasi) else 0,
+            'ada': os.path.isfile(lokasi)
         })
-    hasil.sort(key=lambda item: item['mtime'], reverse=True)
     return hasil
 
 
@@ -369,7 +464,7 @@ class Handler(BaseHTTPRequestHandler):
         if jalur == '/api/settings':
             return self.kirim(200, payload_settings())
         if jalur == '/api/backsound':
-            return self.kirim(200, {'files': daftar_audio()})
+            return self.kirim(200, {'files': daftar_audio(), 'maks': MAX_AUDIO})
         if jalur == '/api/session':
             return self.kirim(200, {'authenticated': self.cookie_auth(), 'needsSetup': not has_admin()})
         if jalur.startswith('/api/media/'):
