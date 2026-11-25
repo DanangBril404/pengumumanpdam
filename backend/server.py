@@ -249,8 +249,11 @@ def payload_settings():
     return data
 
 
-MAX_LOGO = 10
-MAX_AUDIO = 30
+# Batas JUMLAH berkas (jangan pakai nama MAX_AUDIO: nama itu sudah dipakai untuk
+# batas UKURAN 8 MB di atas — dulu tabrakan ini membuat semua unggahan MP3 ditolak
+# 413 karena "batas ukuran" terbaca 30 byte).
+MAKS_LOGO_FILES = 10
+MAKS_AUDIO_FILES = 30
 
 
 def _bersih_media(nilai):
@@ -308,8 +311,8 @@ def settings_baca():
         hasil['backsoundName'] = data['backsoundName']
     hasil['logo'] = _bersih_media(data.get('logo'))
     hasil['backsound'] = _bersih_media(data.get('backsound'))
-    hasil['logos'] = _daftar_media(data.get('logos'), MAX_LOGO)
-    hasil['audios'] = _daftar_media(data.get('audios'), MAX_AUDIO)
+    hasil['logos'] = _daftar_media(data.get('logos'), MAKS_LOGO_FILES)
+    hasil['audios'] = _daftar_media(data.get('audios'), MAKS_AUDIO_FILES)
     hasil['logosInit'] = bool(data.get('logosInit'))
     hasil['audiosInit'] = bool(data.get('audiosInit'))
 
@@ -327,19 +330,19 @@ def settings_baca():
                 if os.path.splitext(nama)[1].lower() not in EKST_AUDIO:
                     continue
                 audios.append({'url': '/api/media/' + nama, 'name': _nama_dari_berkas(nama)})
-                if len(audios) >= MAX_AUDIO:
+                if len(audios) >= MAKS_AUDIO_FILES:
                     break
         hasil['audios'] = audios
         hasil['audiosInit'] = True
         berubah = True
     # Logo aktif & backsound default selalu ada di daftar pustaka.
     if hasil['logo'] and not any(item['url'] == hasil['logo'] for item in hasil['logos']) \
-            and len(hasil['logos']) < MAX_LOGO:
+            and len(hasil['logos']) < MAKS_LOGO_FILES:
         hasil['logos'].insert(0, {'url': hasil['logo'],
                                   'name': _nama_dari_berkas(os.path.basename(urllib_unquote(hasil['logo'])))})
         berubah = True
     if hasil['backsound'] and not any(item['url'] == hasil['backsound'] for item in hasil['audios']) \
-            and len(hasil['audios']) < MAX_AUDIO:
+            and len(hasil['audios']) < MAKS_AUDIO_FILES:
         hasil['audios'].insert(0, {'url': hasil['backsound'],
                                    'name': hasil['backsoundName'] or _nama_dari_berkas(
                                        os.path.basename(urllib_unquote(hasil['backsound'])))})
@@ -355,16 +358,16 @@ def settings_tulis(data):
         nama = data['name'].strip()
         sekarang['name'] = nama or 'Perumda Air Minum Kota Magelang'
     if 'logos' in data:
-        sekarang['logos'] = _daftar_media(data.get('logos'), MAX_LOGO)
+        sekarang['logos'] = _daftar_media(data.get('logos'), MAKS_LOGO_FILES)
         sekarang['logosInit'] = True
     if 'audios' in data:
-        sekarang['audios'] = _daftar_media(data.get('audios'), MAX_AUDIO)
+        sekarang['audios'] = _daftar_media(data.get('audios'), MAKS_AUDIO_FILES)
         sekarang['audiosInit'] = True
     if isinstance(data.get('logo'), str):
         logo = _bersih_media(data['logo'])
         sekarang['logo'] = logo
         if logo and not any(item['url'] == logo for item in sekarang['logos']) \
-                and len(sekarang['logos']) < MAX_LOGO:
+                and len(sekarang['logos']) < MAKS_LOGO_FILES:
             sekarang['logos'].insert(0, {'url': logo,
                                          'name': _nama_dari_berkas(os.path.basename(urllib_unquote(logo)))})
     if isinstance(data.get('backsound'), str):
@@ -373,7 +376,7 @@ def settings_tulis(data):
         if isinstance(data.get('backsoundName'), str):
             sekarang['backsoundName'] = data['backsoundName'][:120]
         if backsound and not any(item['url'] == backsound for item in sekarang['audios']) \
-                and len(sekarang['audios']) < MAX_AUDIO:
+                and len(sekarang['audios']) < MAKS_AUDIO_FILES:
             sekarang['audios'].insert(0, {'url': backsound,
                                           'name': sekarang['backsoundName'] or _nama_dari_berkas(
                                               os.path.basename(urllib_unquote(backsound)))})
@@ -464,7 +467,7 @@ class Handler(BaseHTTPRequestHandler):
         if jalur == '/api/settings':
             return self.kirim(200, payload_settings())
         if jalur == '/api/backsound':
-            return self.kirim(200, {'files': daftar_audio(), 'maks': MAX_AUDIO})
+            return self.kirim(200, {'files': daftar_audio(), 'maks': MAKS_AUDIO_FILES})
         if jalur == '/api/session':
             return self.kirim(200, {'authenticated': self.cookie_auth(), 'needsSetup': not has_admin()})
         if jalur.startswith('/api/media/'):

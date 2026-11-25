@@ -98,7 +98,10 @@ const KIND = {
   identitas: { label: 'Identitas', hint: 'Nama perusahaan dan pustaka logo (maksimal 10). Logo bertanda “Dipakai” tampil di poster.' },
   video: { label: 'Video', hint: 'Pustaka MP3 backsound (maksimal 30) yang bisa dipilih pengguna di frontend saat mengunggah video.' }
 }
-let aktif = 'hiasan'
+let aktif = (() => {
+  const simpan = localStorage.getItem('studio-tab')
+  return simpan && Object.hasOwn(KIND, simpan) ? simpan : 'hiasan'
+})()
 let editId = null
 let cache = {}
 let pipeArt = []
@@ -188,7 +191,7 @@ function gambarTabs() {
   for (const [kunci, info] of Object.entries(KIND)) {
     const tombol = el('button', { className: 'tab', type: 'button', textContent: info.label })
     tombol.setAttribute('aria-pressed', String(kunci === aktif))
-    tombol.addEventListener('click', () => { aktif = kunci; editId = null; gambarTabs(); gambarForm(); gambarDaftar(); pesan('') })
+    tombol.addEventListener('click', () => { aktif = kunci; editId = null; localStorage.setItem('studio-tab', kunci); gambarTabs(); gambarForm(); gambarDaftar(); pesan('') })
     tabs.append(tombol)
   }
 }
