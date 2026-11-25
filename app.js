@@ -94,6 +94,12 @@ let customBackground = null
 let manualImage = null
 let posterScale = 1
 let previewZoom = 100
+const sizePresets = {
+  portrait: { min: 1350, max: 1760 },
+  square: { fixed: 1080 },
+  story: { fixed: 1920 }
+}
+let posterSize = 'portrait'
 let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
@@ -539,7 +545,9 @@ function render() {
   const adviceSpace = adviceHeight ? adviceHeight + 23 : 0
   const footerHeight = 100
   const naturalHeight = 974 + areaHeight + footerHeight - 100 + photoSpace + shift + adviceSpace
-  const height = photoCount ? 1920 : Math.max(1350, Math.min(1760, naturalHeight + 48))
+  const preset = sizePresets[posterSize] || sizePresets.portrait
+  const height = photoCount ? Math.max(1920, preset.fixed || 0)
+    : preset.fixed || Math.max(preset.min, Math.min(preset.max, naturalHeight + 48))
   const spacing = Math.floor(Math.max(0, height - naturalHeight) / 4)
   posterScale = Math.min(1, height / naturalHeight)
   const offset = (1080 - 1080 * posterScale) / 2
@@ -551,7 +559,7 @@ function render() {
   repairSpray.style.setProperty('--spray-top', (429 * posterScale / height * 100) + '%')
   motionControl.hidden = !animate
   repairSpray.hidden = !animate || !motion.checked
-  document.querySelector('#poster-size').textContent = '1080 × ' + height + ' px'
+  document.querySelector('#poster-size').textContent = canvas.width + ' × ' + height + ' px'
   canvas.setAttribute('aria-label', announcement(f))
   paintBackdrop(ctx, height, backdrop, showArtwork ? customBackground : null, baseColor)
   ctx.save()
@@ -719,7 +727,7 @@ function announcement(f) {
 }
 
 function save() {
-  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor })) } catch {}
+  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize })) } catch {}
 }
 
 function update() {
@@ -969,7 +977,7 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
 })
 
 /* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
-const LOGO_PATH = 'logo-perumda.webp'
+const LOGO_PATH = 'logo-perumda.jpg'
 
 function setLogo(image) {
   logo = image
@@ -1003,6 +1011,20 @@ function decodeImage(source) {
     if (image.complete && image.naturalWidth) beres()
   })
 }
+
+/* Ukuran poster: Potrait / Persegi / Story */
+const sizeButtons = [...document.querySelectorAll('[data-size]')]
+function syncSizeChips() {
+  for (const button of sizeButtons) button.setAttribute('aria-pressed', String(button.dataset.size === posterSize))
+}
+function setPosterSize(size, persist = true) {
+  if (!sizePresets[size]) return
+  posterSize = size
+  syncSizeChips()
+  render()
+  if (persist) save()
+}
+for (const button of sizeButtons) button.addEventListener('click', () => setPosterSize(button.dataset.size))
 
 /* Zoom pratinjau desain (Pantau Desain) */
 const zoomIn = document.querySelector('#zoom-in')
@@ -1803,6 +1825,8 @@ const values = draft?.values
 if (!draft?.editableCauses && values?.note && values.note === previousCauses[values.cause]?.note) values.note = ''
 const previousExample = values?.agency === 'Perumda Air Minum Tirta Contoh' && values.area === 'Kelurahan Sukamaju dan sekitarnya'
 populate(previousExample ? example : values)
+if (sizePresets[draft?.posterSize]) posterSize = draft.posterSize
+syncSizeChips()
 const storedTemplate = draft?.template || defaultTemplate
 if (Object.hasOwn(backdrops, storedTemplate)) template = storedTemplate
 showCustomTemplates()
