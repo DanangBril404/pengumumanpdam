@@ -46,14 +46,18 @@ const gayaBawaan = { size: 100, color: '', outline: false, outlineColor: WARNA_O
 
 function gayaUntuk(id) {
   const simpan = (id && gayaAset[id]) || {}
-  const dasar = Object.assign({}, gayaBawaan, simpan)
-  /* Wilayah Terdampak selalu diberi outline agar tulisannya tetap terbaca. */
-  if (id === 'areas' && !Object.hasOwn(simpan, 'outline')) dasar.outline = true
-  return dasar
+  return Object.assign({}, gayaBawaan, simpan)
 }
 
 function simpanGayaAset() {
   storeLocal('kabar-air-gaya-aset', gayaAset)
+}
+
+/* Sekali jalan: buang outline bawaan lama pada Wilayah Terdampak. */
+if (readStorage('kabar-air-gaya-versi', '') !== '2') {
+  if (gayaAset.areas) delete gayaAset.areas.outline
+  storeLocal('kabar-air-gaya-versi', '2')
+  simpanGayaAset()
 }
 
 function skalaHuruf(id) {
