@@ -1196,28 +1196,29 @@ async function selectCustom(id) {
   }
 }
 
-/* ---------- Galeri template perbaikan listrik (unggah + hapus + tersimpan) ---------- */
-const electricalKey = 'kabar-air-electrical-templates'
-let electricalTemplates = readStorage(electricalKey, [])
-const electricalGallery = document.querySelector('#electrical-templates')
-const electricalStatus = document.querySelector('#electrical-status')
+/* ---------- Galeri “Banner Foto”: foto asli dari admin + unggahan lokal ---------- */
+const bannerPhotoKey = 'kabar-air-electrical-templates'
+const FOTO_COLORS = ['#0b2c4d', '#125071', '#9eecff']
+let bannerPhotos = readStorage(bannerPhotoKey, [])
+const photoGallery = document.querySelector('#photo-templates')
+const photoStatus = document.querySelector('#banner-photo-status')
 
-function daftarkanElectrical() {
-  for (const entry of electricalTemplates) {
+function daftarkanBannerFoto() {
+  for (const entry of bannerPhotos) {
     if (!entry?.id) continue
     backdrops[entry.id] = {
-      name: entry.name || 'Template listrik',
-      colors: Array.isArray(entry.colors) && entry.colors.length === 3 ? entry.colors : ['#21243a', '#51476d', '#ffe2a2'],
-      electrical: true,
+      name: entry.name || 'Banner foto',
+      colors: Array.isArray(entry.colors) && entry.colors.length === 3 ? entry.colors : FOTO_COLORS,
+      kind: 'foto',
       custom: true,
       art: readStorage(entry.sourceKey, '') || ''
     }
   }
 }
 
-function tampilStatusElectrical(pesan) {
-  electricalStatus.hidden = !pesan
-  electricalStatus.textContent = pesan
+function tampilStatusFoto(pesan) {
+  photoStatus.hidden = !pesan
+  photoStatus.textContent = pesan
 }
 
 function buatTile(id, backdrop) {
@@ -1249,48 +1250,60 @@ function buatTile(id, backdrop) {
   return button
 }
 
-function showElectricalGallery() {
-  electricalGallery.replaceChildren()
+function showPhotoGallery() {
+  photoGallery.replaceChildren()
+  /* Gambar yang sudah dipakai banner animasi tidak diulang di Banner Foto. */
+  const dipakaiAnimasi = new Set(Object.values(backdrops)
+    .filter(item => item.kind !== 'foto' && item.art).map(item => item.art))
+  let jumlah = 0
   for (const [id, backdrop] of Object.entries(backdrops)) {
-    if (!backdrop.electrical || backdrop.custom) continue
-    electricalGallery.append(buatTile(id, backdrop))
-  }
-  for (const entry of electricalTemplates) {
-    const backdrop = backdrops[entry.id]
-    if (!backdrop) continue
+    if (backdrop.kind !== 'foto') continue
+    const entry = bannerPhotos.find(item => item.id === id)
+    if (!entry && dipakaiAnimasi.has(backdrop.art)) continue
+    jumlah += 1
+    if (!entry) {
+      photoGallery.append(buatTile(id, backdrop))
+      continue
+    }
     const bungkus = document.createElement('div')
-    bungkus.className = 'electrical-tile'
+    bungkus.className = 'photo-tile'
     const hapus = document.createElement('button')
     hapus.type = 'button'
-    hapus.className = 'electrical-delete'
+    hapus.className = 'photo-delete'
     hapus.textContent = '×'
     hapus.title = 'Hapus ' + entry.name + ' dari galeri'
     hapus.setAttribute('aria-label', hapus.title)
     hapus.addEventListener('click', event => {
       event.stopPropagation()
-      hapusElectrical(entry)
+      hapusBannerFoto(entry)
     })
-    bungkus.append(buatTile(entry.id, backdrop), hapus)
-    electricalGallery.append(bungkus)
+    bungkus.append(buatTile(id, backdrop), hapus)
+    photoGallery.append(bungkus)
+  }
+  if (!jumlah) {
+    const kosong = document.createElement('p')
+    kosong.className = 'hint photo-empty'
+    kosong.textContent = 'Belum ada banner foto. Unggah lewat tombol di bawah atau halaman admin.'
+    photoGallery.append(kosong)
   }
 }
 
-function hapusElectrical(entry) {
-  const next = electricalTemplates.filter(item => item.id !== entry.id)
-  if (!storeLocal(electricalKey, next)) return
-  electricalTemplates = next
+function hapusBannerFoto(entry) {
+  const next = bannerPhotos.filter(item => item.id !== entry.id)
+  if (!storeLocal(bannerPhotoKey, next)) return
+  bannerPhotos = next
   try { localStorage.removeItem(entry.sourceKey) } catch {}
   delete backdrops[entry.id]
   templateArtwork.delete(entry.id)
   if (template === entry.id) selectBuiltin(defaultTemplate)
-  showElectricalGallery()
-  tampilStatusElectrical('Template listrik dihapus dari galeri.')
+  showPhotoGallery()
+  tampilStatusFoto('Banner foto dihapus dari galeri.')
 }
 
-const electricalUpload = document.querySelector('#upload-electrical')
-electricalUpload.addEventListener('change', async () => {
-  const files = Array.from(electricalUpload.files)
-  electricalUpload.value = ''
+const bannerPhotoUpload = document.querySelector('#upload-banner-photo')
+bannerPhotoUpload.addEventListener('change', async () => {
+  const files = Array.from(bannerPhotoUpload.files)
+  bannerPhotoUpload.value = ''
   let ditambah = 0
   let pesan = ''
   for (const file of files) {
@@ -1301,27 +1314,27 @@ electricalUpload.addEventListener('change', async () => {
       kanvas.width = Math.max(1, Math.round(image.width * skala))
       kanvas.height = Math.max(1, Math.round(image.height * skala))
       kanvas.getContext('2d').drawImage(image, 0, 0, kanvas.width, kanvas.height)
-      const id = 'listrik-' + buatId()
-      const sourceKey = 'kabar-air-listrik-' + id
+      const id = 'foto-' + buatId()
+      const sourceKey = 'kabar-air-foto-' + id
       if (!storeLocal(sourceKey, kanvas.toDataURL('image/webp', .9))) {
-        pesan = 'Penyimpanan browser penuh. Hapus template listrik lama untuk menambah gambar.'
+        pesan = 'Penyimpanan browser penuh. Hapus banner foto lama untuk menambah gambar.'
         continue
       }
       const entry = {
         id,
-        name: (file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Template listrik'),
+        name: (file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Banner foto'),
         sourceKey
       }
-      const next = [...electricalTemplates, entry]
-      if (!storeLocal(electricalKey, next)) {
+      const next = [...bannerPhotos, entry]
+      if (!storeLocal(bannerPhotoKey, next)) {
         try { localStorage.removeItem(sourceKey) } catch {}
-        pesan = 'Template belum tersimpan. Kosongkan sebagian penyimpanan browser.'
+        pesan = 'Banner foto belum tersimpan. Kosongkan sebagian penyimpanan browser.'
         continue
       }
-      electricalTemplates = next
+      bannerPhotos = next
       backdrops[id] = {
-        name: entry.name, colors: ['#21243a', '#51476d', '#ffe2a2'],
-        electrical: true, custom: true, art: readStorage(sourceKey, '')
+        name: entry.name, colors: FOTO_COLORS,
+        kind: 'foto', custom: true, art: readStorage(sourceKey, '')
       }
       ditambah++
       await selectBuiltin(id)
@@ -1329,11 +1342,11 @@ electricalUpload.addEventListener('change', async () => {
       pesan = error.message
     }
   }
-  showElectricalGallery()
-  tampilStatusElectrical([ditambah ? ditambah + ' template listrik tersimpan dan langsung dipakai.' : '', pesan].filter(Boolean).join(' '))
+  showPhotoGallery()
+  tampilStatusFoto([ditambah ? ditambah + ' banner foto tersimpan dan langsung dipakai.' : '', pesan].filter(Boolean).join(' '))
 })
 
-daftarkanElectrical()
+daftarkanBannerFoto()
 
 /* ---------- Warna dasar latar ---------- */
 const baseColorInput = document.querySelector('#base-color')
@@ -1351,16 +1364,16 @@ document.querySelector('#reset-base-color').addEventListener('click', () => {
   mediaStatus.textContent = 'Warna latar kembali mengikuti template.'
 })
 
-function showPipeGallery() {
-  const gallery = document.querySelector('#pipe-templates')
+function showAnimatedGallery() {
+  const gallery = document.querySelector('#animated-templates')
   gallery.replaceChildren()
   for (const [id, backdrop] of Object.entries(backdrops)) {
-    if (backdrop.electrical || backdrop.custom) continue
+    if (backdrop.kind === 'foto' || backdrop.custom) continue
     gallery.append(buatTile(id, backdrop))
   }
 }
-showPipeGallery()
-showElectricalGallery()
+showAnimatedGallery()
+showPhotoGallery()
 
 async function loadImageFile(file) {
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
@@ -1919,23 +1932,41 @@ const studioApi = new URLSearchParams(location.search).get('api') || ''
 
 function applyServerData(data) {
   let changed = false
+  if (Array.isArray(data.pipeArt) && data.pipeArt.length) {
+    for (const [id, item] of Object.entries(backdrops)) if (item.server && item.kind === 'foto') delete backdrops[id]
+    for (const item of data.pipeArt) {
+      backdrops[item.id] = {
+        name: item.name,
+        colors: FOTO_COLORS,
+        art: item.image || null,
+        kind: 'foto',
+        badges: false,
+        server: true
+      }
+    }
+    changed = true
+  }
   if (Array.isArray(data.templates) && data.templates.length) {
-    for (const [id, item] of Object.entries(backdrops)) if (!item.custom) delete backdrops[id]
+    for (const [id, item] of Object.entries(backdrops)) {
+      if (!item.custom && item.kind !== 'foto') delete backdrops[id]
+    }
     for (const item of data.templates) {
       backdrops[item.id] = {
         name: item.name,
         colors: Array.isArray(item.colors) && item.colors.length === 3 ? item.colors : ['#071c35', '#125071', '#9eecff'],
         art: item.image || null,
-        electrical: item.category === 'listrik',
+        kind: 'animasi',
         animation: item.animation === 'water' ? 'water' : undefined,
         badges: false,
         server: true
       }
     }
     if (!Object.hasOwn(backdrops, template)) template = data.templates[0].id
-    showPipeGallery()
-    showElectricalGallery()
     changed = true
+  }
+  if (Array.isArray(data.templates) && data.templates.length) {
+    showAnimatedGallery()
+    showPhotoGallery()
   }
   if (Array.isArray(data.decorations) && data.decorations.length) {
     for (const key of Object.keys(decorationNames)) delete decorationNames[key]

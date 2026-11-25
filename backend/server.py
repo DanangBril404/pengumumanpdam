@@ -192,7 +192,7 @@ def payload():
         body = item['body']
         return {
             'id': item['id'], 'name': item['name'],
-            'category': body.get('category', 'pipa'),
+            'category': body.get('category', 'animasi'),
             'image': body.get('image', ''),
             'colors': body.get('colors') or ['#071c35', '#125071', '#9eecff'],
             'animation': body.get('animation', '')

@@ -90,8 +90,8 @@ h3{font-size:14px;margin:0 0 8px;color:var(--muted)}
 const API = ''
 const KIND = {
   hiasan: { label: 'Hiasan Poster', hint: 'Gambar hiasan yang muncul di galeri “Template Hiasan Poster”.' },
-  pipa: { label: 'Hiasan Pipa', hint: 'Koleksi gambar pipa; bisa dipakai sebagai gambar template.' },
-  template: { label: 'Template Pipa & Listrik', hint: 'Template latar poster pada galeri Perbaikan pipa / Perbaikan listrik.' },
+  pipa: { label: 'Banner Foto', hint: 'Foto asli (hasil unggahan) yang muncul di galeri “Banner Foto” pada aplikasi.' },
+  template: { label: 'Banner Animasi', hint: 'Banner ilustrasi pada galeri “Banner Animasi” di aplikasi.' },
   jenis: { label: 'Jenis Pengumuman', hint: 'Pilihan pada kolom “Jenis”. Di aplikasi hanya bisa dipilih.' },
   penyebab: { label: 'Penyebab Gangguan', hint: 'Pilihan penyebab + rincian yang otomatis mengisi kolom rincian.' },
   wilayah: { label: 'Pilihan Wilayah', hint: 'Daftar wilayah siap pakai (satu wilayah per baris).' }
@@ -187,14 +187,14 @@ function gambarTabs() {
   }
 }
 
-function fieldGambar(nilai, onChange) {
+function fieldGambar(nilai, onChange, { alamat = true } = {}) {
   const bungkus = el('div', { className: 'grid' })
   const pratinjau = el('img', { alt: '', style: 'width:150px;height:90px;object-fit:cover;border-radius:8px;background:#0a1726' })
   if (nilai) pratinjau.src = nilai
-  const url = el('input', { value: nilai || '', placeholder: '/gambar.webp atau /api/media/…' })
   const berkas = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' })
+  const url = el('input', { value: nilai || '', placeholder: '/gambar.webp atau /api/media/…' })
   const pilih = el('select', {})
-  pilih.append(el('option', { value: '', textContent: '— pilih dari koleksi pipa —' }))
+  pilih.append(el('option', { value: '', textContent: '— pilih dari koleksi Banner Foto —' }))
   for (const item of pipeArt) pilih.append(el('option', { value: item.image, textContent: item.name }))
   const terapkan = (v) => { url.value = v; pratinjau.src = v || ''; onChange(v) }
   url.addEventListener('input', () => terapkan(url.value))
@@ -213,12 +213,14 @@ function fieldGambar(nilai, onChange) {
     }
     reader.readAsDataURL(file)
   })
-  bungkus.append(
-    el('label', {}, 'Alamat gambar', url),
-    el('label', {}, 'Unggah gambar baru', berkas),
-    el('label', {}, 'Atau ambil dari koleksi Hiasan Pipa', pilih),
-    pratinjau
-  )
+  bungkus.append(el('label', {}, alamat ? 'Unggah gambar baru' : 'Unggah foto (PNG, JPG, WebP)', berkas))
+  if (alamat) {
+    bungkus.append(
+      el('label', {}, 'Alamat gambar', url),
+      el('label', {}, 'Atau ambil dari koleksi Banner Foto', pilih)
+    )
+  }
+  bungkus.append(pratinjau)
   return bungkus
 }
 
@@ -234,20 +236,19 @@ function gambarForm(item = null) {
   form.__nama = nama
   form.__body = {}
 
-  if (aktif === 'hiasan' || aktif === 'pipa') {
+  if (aktif === 'hiasan') {
     form.__body.image = (item && item.body.image) || ''
     form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }))
   }
+  if (aktif === 'pipa') {
+    form.__body.image = (item && item.body.image) || ''
+    form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }, { alamat: false }))
+  }
   if (aktif === 'template') {
     const body = item ? item.body : {}
-    const kategori = el('select', {})
-    kategori.append(el('option', { value: 'pipa', textContent: 'Perbaikan pipa' }), el('option', { value: 'listrik', textContent: 'Perbaikan listrik' }))
-    kategori.value = body.category || 'pipa'
-    form.__body.category = kategori.value
-    kategori.addEventListener('change', () => { form.__body.category = kategori.value })
-    form.append(el('label', {}, 'Kategori', kategori))
+    form.__body.category = 'animasi'
     form.__body.image = body.image || ''
-    form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }))
+    form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }, { alamat: false }))
     const warna = (body.colors || ['#071c35', '#125071', '#9eecff']).slice()
     const swatch = el('div', { className: 'swatches' })
     warna.forEach((w, i) => {
@@ -292,7 +293,7 @@ function gambarDaftar() {
     const nama = el('div', { className: 'nama' })
     nama.append(el('b', { textContent: item.name }))
     let kecil = ''
-    if (aktif === 'template') kecil = (item.body.category === 'listrik' ? 'Listrik' : 'Pipa') + ' · ' + (item.body.animation === 'water' ? 'animasi' : 'diam')
+    if (aktif === 'template') kecil = item.body.animation === 'water' ? 'Banner animasi (percikan air)' : 'Banner animasi (diam)'
     if (aktif === 'penyebab') kecil = (item.body.text || '(tanpa rincian)').slice(0, 80)
     if (aktif === 'wilayah') kecil = ((item.body.items || []).length) + ' wilayah'
     if (kecil) nama.append(el('small', { textContent: kecil }))
