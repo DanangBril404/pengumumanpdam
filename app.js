@@ -94,12 +94,19 @@ let customBackground = null
 let manualImage = null
 let posterScale = 1
 let previewZoom = 100
+/* Ukuran poster: preset + ukuran bebas (lebar & tinggi bisa diatur sendiri). */
 const sizePresets = {
-  portrait: { min: 1350, max: 1760 },
-  square: { fixed: 1080 },
-  story: { fixed: 1920 }
+  portrait: { width: 1080, auto: true, min: 1350, max: 1760 },
+  square: { width: 1080, height: 1080 },
+  story: { width: 1080, height: 1920 },
+  custom: { width: 1080 }
 }
+const WIDTH_MIN = 720, WIDTH_MAX = 1620
+const HEIGHT_MIN = 960, HEIGHT_MAX = 2600
 let posterSize = 'portrait'
+let posterWidth = 1080
+let posterHeight = 1920
+let posterHeightAuto = true
 let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
@@ -171,7 +178,7 @@ function snapAxis(position, size, targets, threshold, min, max) {
 
 function snapPosterPosition(id, x, y, box, limits) {
   if (!magnetEnabled) return { x, y }
-  const width = 1080
+  const width = layoutWidth
   const height = canvas.height / posterScale
   const horizontal = [0, 64, width / 2, width - 64, width]
   const vertical = [0, 64, height / 2, height - 64, height]
@@ -182,12 +189,12 @@ function snapPosterPosition(id, x, y, box, limits) {
     horizontal.push(item.x, item.x + item.width / 2, item.x + item.width)
     vertical.push(item.y, item.y + item.height / 2, item.y + item.height)
   }
-  const threshold = 8 * 1080 / (canvas.getBoundingClientRect().width * posterScale)
+  const threshold = 8 * canvas.width / (canvas.getBoundingClientRect().width * posterScale)
   const sx = snapAxis(x, box.width, horizontal, threshold, limits.minX, limits.maxX)
   const sy = snapAxis(y, box.height, vertical, threshold, limits.minY, limits.maxY)
   snapX.hidden = sx.guide === null
   snapY.hidden = sy.guide === null
-  if (!snapX.hidden) snapX.style.left = ((1080 - width * posterScale) / 2 + sx.guide * posterScale) / 1080 * 100 + '%'
+  if (!snapX.hidden) snapX.style.left = ((canvas.width - width * posterScale) / 2 + sx.guide * posterScale) / canvas.width * 100 + '%'
   if (!snapY.hidden) snapY.style.top = sy.guide * posterScale / canvas.height * 100 + '%'
   return { x: sx.position, y: sy.position }
 }
@@ -220,7 +227,7 @@ function registerPosterBlock(id, name, decorative = false) {
   })
   handle.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.id) return
-    const scale = 1080 / (canvas.getBoundingClientRect().width * posterScale)
+    const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
     const position = snapPosterPosition(id, drag.bounds.x + (event.clientX - drag.x) * scale,
       drag.bounds.y + (event.clientY - drag.y) * scale, drag.bounds,
       posterBlockLimits(drag.bounds.width, drag.bounds.height))
@@ -246,7 +253,7 @@ for (const [id, name] of Object.entries(movableLabels)) registerPosterBlock(id, 
 for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
 
 function posterBlockLimits(width, height) {
-  const extraX = 1080 - width
+  const extraX = layoutWidth - width
   const extraY = canvas.height / posterScale - height
   return {
     minX: Math.min(0, extraX), maxX: Math.max(0, extraX),
@@ -261,15 +268,16 @@ function renderBlock(id, x, y, width, height, draw) {
   const baseY = y + transform.f / posterScale
   const saved = blockPositions[id]
   const limits = posterBlockLimits(width, height)
-  const nextX = saved ? Math.max(limits.minX, Math.min(limits.maxX, saved.x)) : x
+  const savedX = saved ? saved.x * layoutWidth / 1080 : null
+  const nextX = saved ? Math.max(limits.minX, Math.min(limits.maxX, savedX)) : x
   const nextY = saved ? Math.max(limits.minY, Math.min(limits.maxY, saved.y)) : baseY
   entry.bounds = { x: nextX, y: nextY, width, height }
   const style = entry.handle.style
   const left = transform.e + nextX * posterScale
   const top = nextY * posterScale
-  style.left = Math.max(0, left) / 1080 * 100 + '%'
+  style.left = Math.max(0, left) / canvas.width * 100 + '%'
   style.top = Math.max(0, top) / canvas.height * 100 + '%'
-  style.width = (Math.min(1080, left + width * posterScale) - Math.max(0, left)) / 1080 * 100 + '%'
+  style.width = (Math.min(canvas.width, left + width * posterScale) - Math.max(0, left)) / canvas.width * 100 + '%'
   style.height = (Math.min(canvas.height, top + height * posterScale) - Math.max(0, top)) / canvas.height * 100 + '%'
   entry.handle.hidden = false
   ctx.save()
@@ -337,15 +345,15 @@ function scheduleText(day, time) {
   return [displayDate(day), displayTime(time)].filter(Boolean).join(' • ') || 'Belum diinformasikan'
 }
 
-function drawSchedule(day, time, x, dark, bright, until = false) {
+function drawSchedule(day, time, x, y, dark, bright, until = false, maxWidth = 430) {
   if (until) {
-    label('SAMPAI SELESAI', x, 616, 36, dark, 800)
+    labelFit('SAMPAI SELESAI', x, y + 100, 36, dark, 800, maxWidth)
     return
   }
   const date = displayDate(day)
   const hour = displayTime(time)
-  label(date || (!hour ? 'Belum diinformasikan' : ''), x, 595, 29, dark)
-  if (hour) label(hour, x, date ? 642 : 616, 41, bright, 800)
+  labelFit(date || (!hour ? 'Belum diinformasikan' : ''), x, y + 79, 29, dark, 700, maxWidth)
+  if (hour) labelFit(hour, x, date ? y + 126 : y + 100, 41, bright, 800, maxWidth)
 }
 
 function fontStack(key) {
@@ -363,6 +371,18 @@ function typeface(size, weight) {
 function label(text, x, y, size, color, weight = 700) {
   ctx.fillStyle = color
   typeface(size, weight)
+  ctx.fillText(text, x, y)
+}
+
+/* Tulis satu baris; huruf dikecilkan bertahap agar tidak melewati lebar kotak. */
+function labelFit(text, x, y, size, color, weight, maxWidth) {
+  let ukuran = size
+  typeface(ukuran, weight)
+  while (ukuran > 15 && ctx.measureText(text).width > maxWidth) {
+    ukuran -= 1
+    typeface(ukuran, weight)
+  }
+  ctx.fillStyle = color
   ctx.fillText(text, x, y)
 }
 
@@ -440,8 +460,8 @@ function drawPhoto(image, x, y, width, height, index) {
   ctx.restore()
 }
 
-function drawDocumentation(f, x, y, count, height, repair, accent) {
-  const width = count === 1 ? documentationWidth : (documentationWidth - 18) / 2
+function drawDocumentation(f, x, y, count, height, repair, accent, docWidth = documentationWidth) {
+  const width = count === 1 ? docWidth : (docWidth - 18) / 2
   rounded(x, y, 360, 32, 8, '#082137')
   if (repair) {
     ctx.fillStyle = '#ffd066'
@@ -469,9 +489,8 @@ function drawDocumentation(f, x, y, count, height, repair, accent) {
   setFont()
 }
 
-function drawAdvice(f, y, lines, fontSize, height, dark) {
-  const x = 64 + Number(f.adviceX) / 100 * 112
-  rounded(x, y, 840, height, 22, '#fff0bb')
+function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840) {
+  rounded(x, y, width, height, 22, '#fff0bb')
   rounded(x + 18, y + 17, 53, 53, 13, dark)
   ctx.save()
   ctx.translate(x + 26, y + 24)
@@ -495,18 +514,22 @@ function drawAdvice(f, y, lines, fontSize, height, dark) {
   lines.forEach((line, index) => label(line, x + 90, y + 67 + index * (fontSize + 7), fontSize, dark, 700))
 }
 
-function render() {
-  const f = fields()
-  for (const entry of posterBlocks.values()) entry.bounds = null
-  const backdrop = Object.hasOwn(backdrops, template) ? backdrops[template] : backdrops[defaultTemplate]
-  const [dark, bright, accent] = backdrop.colors
-  const repair = Object.hasOwn(backdrops, template)
-  const showArtwork = !hiddenLayers.has('artwork')
-  const animate = repair && showArtwork && backdrop.animation === 'water'
+/* Lebar tata letak kolom isi: 1080 = desain asli. Saat poster dilebarkan atau
+   dipendekkan, kolom isi melebar dan — pada poster lebar — blok isi disusun dua
+   kolom agar isi memenuhi kanvas tanpa pita kosong. */
+let layoutWidth = 1080
+
+function measureLayout(f, LW, repair) {
+  const PAD = 64
+  const IW = LW - PAD * 2
+  const wide = LW >= 1400
+  const gap = 36
+  const colW = Math.round((IW - gap) / 2)
+  const textW = wide ? colW : IW
   const cause = selectedCause(f.cause)
   const title = f.customTitle || f.type || example.type
   const titleSize = Math.round((repair ? 64 : 61) * Number(f.titleScale) / 100)
-  const titleWidth = repair ? 620 : 950
+  const titleWidth = repair ? Math.min(wide ? textW - 20 : 620, IW) : textW - 2
   const heading = repair && !f.customTitle && f.type === example.type && cause
     ? title + '\n' + cause.title : title
   setFont('title')
@@ -518,7 +541,8 @@ function render() {
   const extraSize = repair ? 31 : 28
   setFont('extra')
   typeface(extraSize, 700)
-  const extraLines = f.titleExtra ? wrap(f.titleExtra, repair ? 800 : 950) : []
+  const extraWidth = wide ? textW - 2 : (repair ? Math.min(800, IW) : IW - 2)
+  const extraLines = f.titleExtra ? wrap(f.titleExtra, extraWidth) : []
   const extraY = Math.max(repair ? 450 : 316, titleEnd + extraSize + 12)
   const extraEnd = extraLines.length ? extraY + (extraLines.length - 1) * (extraSize + 8) : titleEnd
   const underline = Math.max(436, extraEnd + 23)
@@ -529,8 +553,9 @@ function render() {
   const areas = locations(f.area)
   setFont('area')
   typeface(27, 600)
-  const columns = areas.length >= 6 ? 2 : 1
-  const areaWidth = columns === 2 ? 439 : 900
+  const areaBoxW = wide ? colW : IW
+  const columns = areas.length >= 6 && areaBoxW >= 520 ? 2 : 1
+  const areaWidth = columns === 2 ? Math.round(areaBoxW / 2 - 37) : areaBoxW - 52
   const areaLines = (areas.length ? areas : ['Belum diinformasikan']).map(area => wrap(area, areaWidth - 32))
   const split = columns === 2 ? Math.ceil(areaLines.length / 2) : areaLines.length
   const left = areaLines.slice(0, split)
@@ -540,28 +565,130 @@ function render() {
   const adviceSize = Math.round(28 * Number(f.adviceScale) / 100)
   setFont('advice')
   typeface(adviceSize, 700)
-  const adviceLines = f.advice ? wrap(f.advice, 725) : []
+  const adviceWrap = wide ? colW - 130 : Math.round(IW * .762)
+  const adviceLines = f.advice ? wrap(f.advice, adviceWrap) : []
   const adviceHeight = adviceLines.length ? 85 + (adviceLines.length - 1) * (adviceSize + 7) : 0
   const adviceSpace = adviceHeight ? adviceHeight + 23 : 0
   const footerHeight = 100
-  const naturalHeight = 974 + areaHeight + footerHeight - 100 + photoSpace + shift + adviceSpace
-  const preset = sizePresets[posterSize] || sizePresets.portrait
-  const height = photoCount ? Math.max(1920, preset.fixed || 0)
-    : preset.fixed || Math.max(preset.min, Math.min(preset.max, naturalHeight + 48))
-  const spacing = Math.floor(Math.max(0, height - naturalHeight) / 4)
-  posterScale = Math.min(1, height / naturalHeight)
-  const offset = (1080 - 1080 * posterScale) / 2
+  let blocks, naturalHeight, bodyBottom
+  if (wide) {
+    const bodyTop = Math.max(repair ? 545 : 380, extraEnd + 36)
+    const rightX = PAD + colW + gap
+    blocks = {
+      cause: { x: PAD, y: bodyTop, w: colW, h: 172 },
+      schedule: { x: PAD, y: bodyTop + 190, w: colW, h: 162 },
+      advice: { x: PAD, y: bodyTop + 370, w: colW, h: adviceHeight },
+      areas: { x: rightX, y: bodyTop, w: colW, h: areaHeight + 76 }
+    }
+    bodyBottom = Math.max(bodyTop + 370 + adviceHeight, bodyTop + areaHeight + 76)
+    naturalHeight = bodyBottom + photoSpace + footerHeight + 148
+  } else {
+    blocks = {
+      cause: { x: PAD, y: 325, w: IW, h: 172 },
+      schedule: { x: PAD, y: 516, w: IW, h: 162 },
+      areas: { x: PAD, y: 650, w: IW, h: areaHeight + 76 },
+      advice: { x: PAD + Number(f.adviceX) / 100 * 112, y: 0, w: Math.round(IW * .882), h: adviceHeight }
+    }
+    bodyBottom = 650 + areaHeight + 76 + shift + adviceSpace
+    naturalHeight = 974 + areaHeight + footerHeight - 100 + photoSpace + shift + adviceSpace
+  }
+  return { PAD, IW, wide, colW, gap, titleSize, titleWidth, titleLines, titleStep, titleY, titleEnd,
+    extraSize, extraLines, extraWidth, extraY, extraEnd, underline, shift, photoCount, photoHeight,
+    photoSpace, areas, columns, areaWidth, areaLines, left, right, areaHeight, adviceSize, adviceLines,
+    adviceHeight, adviceSpace, footerHeight, blocks, naturalHeight, bodyBottom }
+}
+
+function drawCauseBox(cause, note, x, y, w, dark) {
+  rounded(x, y, w, 172, 23, '#fff0bb')
+  setFont('note')
+  block(cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
+  block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, dark, 600)
+}
+
+function drawScheduleBox(f, x, y, w, dark, bright) {
+  rounded(x, y, w, 162, 23, '#ffffff')
+  const mid = x + Math.round(w / 2)
+  ctx.fillStyle = '#d8e7f0'
+  ctx.fillRect(mid, y + 23, 2, 115)
+  label('MULAI PEKERJAAN', x + 30, y + 37, 21, bright)
+  label('PERKIRAAN SELESAI', mid + 30, y + 37, 21, bright)
+  const half = Math.round(w / 2) - 48
+  drawSchedule(f.startDate, f.startTime, x + 30, y, dark, bright, false, half)
+  drawSchedule(f.endDate, f.endTime, mid + 30, y, dark, bright, f.finishMode === 'until', half)
+}
+
+function drawAreasBox(geo, x, y, w, accent, bright, dark) {
+  label('WILAYAH TERDAMPAK', x + 1, y + 27, 26, accent)
+  rounded(x, y + 45, w, geo.areaHeight + 31, 22, '#ffffff')
+  setFont('area')
+  const columnX = geo.columns === 2 ? [x + 29, x + Math.round(w / 2) + 16] : [x + 29]
+  for (const [index, group] of [geo.left, geo.right].entries()) {
+    if (!columnX[index]) continue
+    let rowY = y + 81
+    for (const lines of group) {
+      label('•', columnX[index], rowY, 27, bright)
+      for (const line of lines) {
+        label(line, columnX[index] + 27, rowY, 27, dark, 600)
+        rowY += 34
+      }
+      rowY += 8
+    }
+  }
+}
+
+function render() {
+  const f = fields()
+  for (const entry of posterBlocks.values()) entry.bounds = null
+  const backdrop = Object.hasOwn(backdrops, template) ? backdrops[template] : backdrops[defaultTemplate]
+  const [dark, bright, accent] = backdrop.colors
+  const repair = Object.hasOwn(backdrops, template)
+  const showArtwork = !hiddenLayers.has('artwork')
+  const animate = repair && showArtwork && backdrop.animation === 'water'
+  const cause = selectedCause(f.cause)
+  const preset = sizePresets[posterSize] || sizePresets.custom
+  const width = Math.round(Math.max(WIDTH_MIN, Math.min(WIDTH_MAX, Number(posterWidth) || 1080)))
+  let geo = measureLayout(f, 1080, repair)
+  let height
+  if (posterHeightAuto) {
+    height = Math.round((geo.naturalHeight + 48) * width / 1080)
+    if (preset.auto) height = Math.max(preset.min, Math.min(preset.max, height))
+  } else {
+    height = Math.round(Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920)))
+  }
+  if (geo.photoCount) height = Math.max(height, 1920)
+  height = Math.max(320, height)
+  /* Bila isi desain asli tidak muat, kolom isi dilebarkan (teks melebar, huruf
+     menyesuaikan); pada poster lebar blok isi otomatis disusun dua kolom. */
+  let LW = 1080
+  if (geo.naturalHeight * width / 1080 > height + 1) {
+    for (const candidate of [1160, 1250, 1350, 1420, 1500, 1580, 1660, 1750, 1850, 1950, 2100, 2250, 2400, 2600]) {
+      if (candidate > Math.max(width * 1.8, 1500)) break
+      const coba = measureLayout(f, candidate, repair)
+      if (coba.naturalHeight * width / candidate <= height) { LW = candidate; geo = coba; break }
+    }
+  }
+  layoutWidth = LW
+  const naturalHeight = geo.naturalHeight
+  posterScale = Math.max(0.3, Math.min(width / LW, height / naturalHeight))
+  const spacing = Math.floor(Math.max(0, height / posterScale - naturalHeight) / 4)
+  const offset = (width - LW * posterScale) / 2
+  if (canvas.width !== width) canvas.width = width
   if (canvas.height !== height) canvas.height = height
   const zoom = previewZoom / 100
-  const lebarMaks = (570 * zoom).toFixed(0) + 'px'
-  const tinggiMaks = (1080 * 65 / height * zoom).toFixed(1) + 'vh'
+  const lebarMaks = (570 * width / 1080 * zoom).toFixed(0) + 'px'
+  const tinggiMaks = (width * 65 / height * zoom).toFixed(1) + 'vh'
   posterWrap.style.width = zoom > 1 ? 'min(' + lebarMaks + ', ' + tinggiMaks + ')' : 'min(100%, ' + lebarMaks + ', ' + tinggiMaks + ')'
   repairSpray.style.setProperty('--spray-top', (429 * posterScale / height * 100) + '%')
   motionControl.hidden = !animate
   repairSpray.hidden = !animate || !motion.checked
   document.querySelector('#poster-size').textContent = canvas.width + ' × ' + height + ' px'
   canvas.setAttribute('aria-label', announcement(f))
-  paintBackdrop(ctx, height, backdrop, showArtwork ? customBackground : null, baseColor)
+  paintBackdrop(ctx, height, backdrop, showArtwork ? customBackground : null, baseColor, width)
+  const { PAD, IW, wide, titleSize, titleWidth, titleLines, titleStep, titleY, titleEnd, extraSize,
+    extraLines, extraWidth, extraY, shift, photoCount, photoHeight, adviceSize, adviceLines,
+    adviceHeight, adviceSpace, footerHeight, blocks, areaHeight } = geo
+  const MID = Math.round(LW / 2)
+  const docWidth = Math.round(IW * .882)
   ctx.save()
   ctx.translate(offset, 0)
   ctx.scale(posterScale, posterScale)
@@ -569,8 +696,8 @@ function render() {
     const image = layer.type === 'custom' ? decorationArtwork.get(layer.id) : null
     if (layer.type === 'custom' && !image) continue
     const logicalHeight = height / posterScale
-    const width = Math.round(1040 * layer.width / 100)
-    const x = (1080 - width) / 2
+    const width = Math.round((LW - 40) * layer.width / 100)
+    const x = (LW - width) / 2
     const artHeight = image ? width * image.height / image.width : Math.floor(logicalHeight * .75)
     const y = image ? (logicalHeight - artHeight) / 2 : logicalHeight - artHeight
     renderBlock(layer.id, x, y, width, artHeight, () => {
@@ -585,8 +712,11 @@ function render() {
     })
   }
   if (repair && showArtwork) {
+    ctx.save()
+    if (LW > 1080) ctx.translate(LW - 1080, 0)
     paintRepairHero(ctx, backdrop, backdrop.manual ? manualImage : templateArtwork.get(template),
       hiddenLayers.has('logo') ? null : logo, f)
+    ctx.restore()
   }
   setFont()
 
@@ -599,107 +729,89 @@ function render() {
     label('KOTA MAGELANG', agencyX, 132, 33, '#ffffff', 800)
   })
 
-  renderBlock('banner', 64, 180, 324, 44, () => {
+  renderBlock('banner', PAD, 180, 324, 44, () => {
     if (repair) {
-      rounded(64, 181, 324, 43, 21, '#ffd066')
-      label('INFORMASI LAYANAN AIR', 84, 209, 21, '#0b2943', 800)
+      rounded(PAD, 181, 324, 43, 21, '#ffd066')
+      label('INFORMASI LAYANAN AIR', PAD + 20, 209, 21, '#0b2943', 800)
     } else {
-      label('INFORMASI LAYANAN AIR', 65, 203, 24, accent)
+      label('INFORMASI LAYANAN AIR', PAD + 1, 203, 24, accent)
     }
   })
-  renderBlock('title', 60, titleY - titleSize, titleWidth, titleEnd - titleY + titleSize + 16, () => {
+  renderBlock('title', PAD - 4, titleY - titleSize, titleWidth, titleEnd - titleY + titleSize + 16, () => {
     setFont('title')
-    titleLines.forEach((line, index) => label(line, 60, titleY + index * titleStep, titleSize, '#ffffff', 800))
+    titleLines.forEach((line, index) => label(line, PAD - 4, titleY + index * titleStep, titleSize, '#ffffff', 800))
     if (repair) {
       ctx.fillStyle = '#ffd066'
-      ctx.fillRect(65, titleEnd + 16, 87, 5)
+      ctx.fillRect(PAD + 1, titleEnd + 16, 87, 5)
     }
   })
   if (extraLines.length) {
-    renderBlock('extra', 65, extraY - extraSize, repair ? 800 : 950, extraEnd - extraY + extraSize + 12, () => {
+    renderBlock('extra', PAD + 1, extraY - extraSize, extraWidth, extraEnd - extraY + extraSize + 12, () => {
       setFont('extra')
-      extraLines.forEach((line, index) => label(line, 65, extraY + index * (extraSize + 8), extraSize, '#ffffff'))
+      extraLines.forEach((line, index) => label(line, PAD + 1, extraY + index * (extraSize + 8), extraSize, '#ffffff'))
     })
   }
 
-  ctx.save()
-  ctx.translate(0, shift + spacing)
-  renderBlock('cause', 64, 325, 952, 172, () => {
-    rounded(64, 325, 952, 172, 23, '#fff0bb')
-    setFont('note')
-    block(cause?.title || 'Rincian Pengumuman', 94, 371, 890, 1, 32, dark, 800)
-    block(f.note.replace(/\s+/g, ' ') || 'Belum diinformasikan', 94, 410, 890, 3, 25, dark, 600)
-  })
-
-  ctx.translate(0, spacing)
-  renderBlock('schedule', 64, 516, 952, 162, () => {
-    rounded(64, 516, 952, 162, 23, '#ffffff')
-    ctx.fillStyle = '#d8e7f0'
-    ctx.fillRect(540, 539, 2, 115)
-    label('MULAI PEKERJAAN', 94, 553, 21, bright)
-    label('PERKIRAAN SELESAI', 570, 553, 21, bright)
-    drawSchedule(f.startDate, f.startTime, 94, dark, bright)
-    drawSchedule(f.endDate, f.endTime, 570, dark, bright, f.finishMode === 'until')
-  })
-
-  ctx.translate(0, 52 + spacing)
-  const showAdvice = y => renderBlock('advice', 64 + Number(f.adviceX) / 100 * 112, y, 840, adviceHeight,
-    () => drawAdvice(f, y, adviceLines, adviceSize, adviceHeight, dark))
-  if (adviceSpace && f.advicePosition === 'before') {
-    showAdvice(646)
-    ctx.translate(0, adviceSpace)
-  }
-
-  renderBlock('areas', 64, 650, 952, areaHeight + 76, () => {
-    label('WILAYAH TERDAMPAK', 65, 677, 26, accent)
-    rounded(64, 695, 952, areaHeight + 31, 22, '#ffffff')
-    setFont('area')
-    for (const [index, group] of [left, right].entries()) {
-      const x = 93 + index * 463
-      let y = 731
-      for (const lines of group) {
-        label('•', x, y, 27, bright)
-        for (const line of lines) {
-          label(line, x + 27, y, 27, dark, 600)
-          y += 34
-        }
-        y += 8
-      }
+  if (wide) {
+    const c = blocks.cause, s = blocks.schedule, a = blocks.advice, ar = blocks.areas
+    renderBlock('cause', c.x, c.y, c.w, c.h, () => drawCauseBox(cause, f.note, c.x, c.y, c.w, dark))
+    renderBlock('schedule', s.x, s.y, s.w, s.h, () => drawScheduleBox(f, s.x, s.y, s.w, dark, bright))
+    if (adviceSpace) {
+      renderBlock('advice', a.x, a.y, a.w, a.h,
+        () => drawAdvice(f, a.x, a.y, adviceLines, adviceSize, a.h, dark, a.w))
     }
-  })
-
-  const afterPhotos = photoCount && f.advicePosition === 'photos'
-  if (adviceSpace && f.advicePosition !== 'before' && !afterPhotos) {
-    showAdvice(744 + areaHeight)
-    ctx.translate(0, adviceSpace)
+    renderBlock('areas', ar.x, ar.y, ar.w, ar.h,
+      () => drawAreasBox(geo, ar.x, ar.y, ar.w, accent, bright, dark))
+  } else {
+    ctx.save()
+    ctx.translate(0, shift + spacing)
+    renderBlock('cause', PAD, 325, IW, 172, () => drawCauseBox(cause, f.note, PAD, 325, IW, dark))
+    ctx.translate(0, spacing)
+    renderBlock('schedule', PAD, 516, IW, 162, () => drawScheduleBox(f, PAD, 516, IW, dark, bright))
+    ctx.translate(0, 52 + spacing)
+    const adviceX = PAD + Number(f.adviceX) / 100 * 112
+    const adviceWidth = Math.round(IW * .882)
+    const showAdvice = y => renderBlock('advice', adviceX, y, adviceWidth, adviceHeight,
+      () => drawAdvice(f, adviceX, y, adviceLines, adviceSize, adviceHeight, dark, adviceWidth))
+    if (adviceSpace && f.advicePosition === 'before') {
+      showAdvice(646)
+      ctx.translate(0, adviceSpace)
+    }
+    renderBlock('areas', PAD, 650, IW, areaHeight + 76, () => drawAreasBox(geo, PAD, 650, IW, accent, bright, dark))
+    const afterPhotos = photoCount && f.advicePosition === 'photos'
+    if (adviceSpace && f.advicePosition !== 'before' && !afterPhotos) {
+      showAdvice(744 + areaHeight)
+      ctx.translate(0, adviceSpace)
+    }
+    if (adviceSpace && afterPhotos) showAdvice(851 + areaHeight + photoHeight)
+    ctx.restore()
   }
-  if (adviceSpace && afterPhotos) showAdvice(851 + areaHeight + photoHeight)
-  ctx.restore()
 
   const footerTop = height / posterScale - footerHeight - 31
   photoDrag.hidden = !photoCount || hiddenLayers.has('photos')
   docBounds = null
   if (!photoDrag.hidden) {
     const docHeight = photoHeight + 35
-    const maxX = 1080 - documentationWidth - 48
+    const maxX = LW - docWidth - 48
     const maxY = footerTop - docHeight - 12
-    const defaultY = 846 + areaHeight + shift + spacing * 3 + (afterPhotos ? 0 : adviceSpace)
+    const defaultY = wide ? geo.bodyBottom + 12
+      : 846 + areaHeight + shift + spacing * 3 + (f.advicePosition === 'photos' ? 0 : adviceSpace)
     const x = Math.max(48, Math.min(maxX, f.docX === '' ? 120 : Number(f.docX)))
     const y = Math.max(24, Math.min(maxY, f.docY === '' ? defaultY : Number(f.docY)))
-    docBounds = { x, y, width: documentationWidth, height: docHeight, maxX, maxY }
-    drawDocumentation(f, x, y, photoCount, photoHeight, repair, accent)
-    photoDrag.style.left = (offset + x * posterScale) / 1080 * 100 + '%'
+    docBounds = { x, y, width: docWidth, height: docHeight, maxX, maxY }
+    drawDocumentation(f, x, y, photoCount, photoHeight, repair, accent, docWidth)
+    photoDrag.style.left = (offset + x * posterScale) / canvas.width * 100 + '%'
     photoDrag.style.top = y * posterScale / height * 100 + '%'
-    photoDrag.style.width = documentationWidth * posterScale / 1080 * 100 + '%'
+    photoDrag.style.width = docWidth * posterScale / canvas.width * 100 + '%'
     photoDrag.style.height = docHeight * posterScale / height * 100 + '%'
   }
-  renderBlock('socials', 64, footerTop, 952, footerHeight, () => {
+  renderBlock('socials', PAD, footerTop, IW, footerHeight, () => {
     setFont()
-    rounded(64, footerTop, 952, footerHeight, 19, dark)
+    rounded(PAD, footerTop, IW, footerHeight, 19, dark)
     for (const [index, account] of socials.entries()) {
-      const x = index % 2 === 0 ? 87 : 550
+      const x = index % 2 === 0 ? PAD + 23 : MID + 10
       const y = footerTop + (index < 2 ? 37 : 75)
-      drawSocial(index, account.split('  ')[1], x, y, index % 2 === 0 ? 445 : 440)
+      drawSocial(index, account.split('  ')[1], x, y, index % 2 === 0 ? Math.round(IW * .467) : Math.round(IW * .462))
     }
   })
 
@@ -727,7 +839,7 @@ function announcement(f) {
 }
 
 function save() {
-  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize })) } catch {}
+  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize, posterWidth, posterHeight, posterHeightAuto })) } catch {}
 }
 
 function update() {
@@ -1012,19 +1124,57 @@ function decodeImage(source) {
   })
 }
 
-/* Ukuran poster: Potrait / Persegi / Story */
+/* Ukuran poster: Potrait / Persegi / Story / Bebas */
 const sizeButtons = [...document.querySelectorAll('[data-size]')]
+const widthInput = document.querySelector('#poster-width')
+const heightInput = document.querySelector('#poster-height')
+const heightAutoInput = document.querySelector('#poster-height-auto')
+const widthValue = document.querySelector('#poster-width-value')
+const heightValue = document.querySelector('#poster-height-value')
 function syncSizeChips() {
   for (const button of sizeButtons) button.setAttribute('aria-pressed', String(button.dataset.size === posterSize))
 }
+function syncSizeControls() {
+  if (!widthInput) return
+  widthInput.value = posterWidth
+  heightInput.value = posterHeight
+  heightInput.disabled = posterHeightAuto
+  heightAutoInput.checked = posterHeightAuto
+  widthValue.textContent = posterWidth + ' px'
+  heightValue.textContent = posterHeightAuto ? 'Otomatis' : posterHeight + ' px'
+}
 function setPosterSize(size, persist = true) {
   if (!sizePresets[size]) return
+  if (size !== 'custom') {
+    const preset = sizePresets[size]
+    posterWidth = preset.width || 1080
+    posterHeightAuto = preset.height === undefined
+    if (preset.height !== undefined) posterHeight = preset.height
+    else posterHeight = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920))
+  }
   posterSize = size
   syncSizeChips()
+  syncSizeControls()
   render()
   if (persist) save()
 }
 for (const button of sizeButtons) button.addEventListener('click', () => setPosterSize(button.dataset.size))
+widthInput?.addEventListener('input', () => {
+  posterWidth = Number(widthInput.value)
+  posterSize = 'custom'
+  syncSizeChips(); syncSizeControls(); render(); save()
+})
+heightInput?.addEventListener('input', () => {
+  posterHeight = Number(heightInput.value)
+  posterHeightAuto = false
+  posterSize = 'custom'
+  syncSizeChips(); syncSizeControls(); render(); save()
+})
+heightAutoInput?.addEventListener('change', () => {
+  posterHeightAuto = heightAutoInput.checked
+  posterSize = 'custom'
+  syncSizeChips(); syncSizeControls(); render(); save()
+})
 
 /* Zoom pratinjau desain (Pantau Desain) */
 const zoomIn = document.querySelector('#zoom-in')
@@ -1695,7 +1845,7 @@ photoDrag.addEventListener('pointerdown', event => {
 })
 photoDrag.addEventListener('pointermove', event => {
   if (!documentationDrag || documentationDrag.id !== event.pointerId) return
-  const scale = 1080 / (canvas.getBoundingClientRect().width * posterScale)
+  const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
   const position = snapPosterPosition('photos',
     documentationDrag.x + (event.clientX - documentationDrag.clientX) * scale,
     documentationDrag.y + (event.clientY - documentationDrag.clientY) * scale, documentationDrag, {
@@ -1826,7 +1976,11 @@ if (!draft?.editableCauses && values?.note && values.note === previousCauses[val
 const previousExample = values?.agency === 'Perumda Air Minum Tirta Contoh' && values.area === 'Kelurahan Sukamaju dan sekitarnya'
 populate(previousExample ? example : values)
 if (sizePresets[draft?.posterSize]) posterSize = draft.posterSize
+if (Number.isFinite(draft?.posterWidth)) posterWidth = draft.posterWidth
+if (Number.isFinite(draft?.posterHeight)) posterHeight = draft.posterHeight
+if (typeof draft?.posterHeightAuto === 'boolean') posterHeightAuto = draft.posterHeightAuto
 syncSizeChips()
+syncSizeControls()
 const storedTemplate = draft?.template || defaultTemplate
 if (Object.hasOwn(backdrops, storedTemplate)) template = storedTemplate
 showCustomTemplates()

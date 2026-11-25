@@ -43,23 +43,23 @@ function coverImage(context, image, x, y, width, height) {
     height * image.height / frame.height, x, y, width, height)
 }
 
-function paintBackdrop(context, height, backdrop, image = null, baseColor = '') {
+function paintBackdrop(context, height, backdrop, image = null, baseColor = '', width = 1080) {
   const dasar = baseColor ? shadeHex(baseColor, -0.28) : backdrop.colors[0]
   const terang = baseColor || backdrop.colors[1]
   const accent = backdrop.colors[2]
-  const gradient = context.createLinearGradient(0, 0, 1080, Math.min(height, 1500))
+  const gradient = context.createLinearGradient(0, 0, width, Math.min(height, 1500))
   gradient.addColorStop(0, dasar)
   gradient.addColorStop(1, terang)
   context.fillStyle = gradient
-  context.fillRect(0, 0, 1080, height)
+  context.fillRect(0, 0, width, height)
   if (image) {
-    coverImage(context, image, 0, 0, 1080, height)
+    coverImage(context, image, 0, 0, width, height)
     context.fillStyle = baseColor ? baseColor + '2e' : '#071b35c4'
-    context.fillRect(0, 0, 1080, height)
+    context.fillRect(0, 0, width, height)
     return
   }
   context.fillStyle = accent + '31'
   for (let y = 545; y < height; y += 43) {
-    for (const x of [19, 39, 1040, 1060]) context.fillRect(x, y, 4, 4)
+    for (const x of [19, 39, width - 40, width - 20]) context.fillRect(x, y, 4, 4)
   }
 }
