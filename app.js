@@ -738,7 +738,7 @@ function render() {
     ctx.save()
     if (LW > 1080) ctx.translate(LW - 1080, 0)
     paintRepairHero(ctx, backdrop, backdrop.manual ? manualImage : templateArtwork.get(template),
-      hiddenLayers.has('logo') ? null : logo, f)
+      hiddenLayers.has('logo') ? null : logo, f, LW - 1080)
     ctx.restore()
   }
   setFont()

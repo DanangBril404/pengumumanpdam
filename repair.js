@@ -47,15 +47,19 @@ function paintManualImage(context, image, f) {
   context.drawImage(manualLayer, x, 0)
 }
 
-function paintRepairHero(context, backdrop, image, logo, f) {
+function paintRepairHero(context, backdrop, image, logo, f, shift = 0) {
   if (backdrop.manual) {
     paintManualImage(context, image, f)
     return
   }
   const height = 530
   const [dark, bright] = backdrop.colors
+  /* Kanvas bisa lebih lebar dari 1080 (tata letak dua kolom). Fade harus mulai dari
+     tepi kiri kanvas, bukan dari 0, kalau tidak muncul batas warna yang terlihat terpotong. */
+  const mulai = -shift
+  const lebarBanner = 1080 + shift
   /* Fade dibuat panjang dan bertahap supaya tepi foto tidak terlihat sebagai potongan. */
-  const leftFade = context.createLinearGradient(0, 0, 1010, 0)
+  const leftFade = context.createLinearGradient(mulai, 0, 1010, 0)
   leftFade.addColorStop(0, dark)
   leftFade.addColorStop(.3, dark + 'e6')
   leftFade.addColorStop(.58, dark + '73')
@@ -73,9 +77,9 @@ function paintRepairHero(context, backdrop, image, logo, f) {
     else paintRepairPipe(context)
   }
   context.fillStyle = leftFade
-  context.fillRect(0, 0, 1080, height)
+  context.fillRect(mulai, 0, lebarBanner, height)
   context.fillStyle = bottomFade
-  context.fillRect(0, 370, 1080, height - 370)
+  context.fillRect(mulai, 340, lebarBanner, height - 340)
   if (image && logo && backdrop.badges) {
     const frame = coverImageFrame(image, 245, 0, 835, height)
     for (const [u, v, size, angle] of backdrop.badges) {
