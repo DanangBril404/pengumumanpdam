@@ -93,6 +93,7 @@ let activeFont = formalFonts.dm.stack
 let customBackground = null
 let manualImage = null
 let posterScale = 1
+let previewZoom = 100
 let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
@@ -272,7 +273,6 @@ function renderBlock(id, x, y, width, height, draw) {
 }
 
 let logo = null
-let logoBadge = null
 
 function readStorage(key, fallback) {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback } catch { return fallback }
@@ -544,7 +544,10 @@ function render() {
   posterScale = Math.min(1, height / naturalHeight)
   const offset = (1080 - 1080 * posterScale) / 2
   if (canvas.height !== height) canvas.height = height
-  posterWrap.style.width = 'min(100%, 570px, ' + (1080 * 65 / height) + 'vh)'
+  const zoom = previewZoom / 100
+  const lebarMaks = (570 * zoom).toFixed(0) + 'px'
+  const tinggiMaks = (1080 * 65 / height * zoom).toFixed(1) + 'vh'
+  posterWrap.style.width = zoom > 1 ? 'min(' + lebarMaks + ', ' + tinggiMaks + ')' : 'min(100%, ' + lebarMaks + ', ' + tinggiMaks + ')'
   repairSpray.style.setProperty('--spray-top', (429 * posterScale / height * 100) + '%')
   motionControl.hidden = !animate
   repairSpray.hidden = !animate || !motion.checked
@@ -967,7 +970,6 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
 
 /* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
 const LOGO_PATH = 'logo-perumda.png'
-const LOGO_BADGE_PATH = 'logo-perumda-badge.png'
 
 function setLogo(image) {
   logo = image
@@ -1001,6 +1003,29 @@ function decodeImage(source) {
     if (image.complete && image.naturalWidth) beres()
   })
 }
+
+/* Zoom pratinjau desain (Pantau Desain) */
+const zoomIn = document.querySelector('#zoom-in')
+const zoomOut = document.querySelector('#zoom-out')
+const zoomReset = document.querySelector('#zoom-reset')
+const zoomValue = document.querySelector('#zoom-value')
+const stageEl = document.querySelector('.stage')
+const ZOOM_MIN = 50, ZOOM_MAX = 400, ZOOM_STEP = 25
+
+function setZoom(value) {
+  previewZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(value)))
+  zoomValue.textContent = previewZoom + '%'
+  stageEl.dataset.zoomed = previewZoom > 100 ? '1' : '0'
+  render()
+}
+zoomIn.addEventListener('click', () => setZoom(previewZoom + ZOOM_STEP))
+zoomOut.addEventListener('click', () => setZoom(previewZoom - ZOOM_STEP))
+zoomReset.addEventListener('click', () => setZoom(100))
+stageEl.addEventListener('wheel', event => {
+  if (!event.ctrlKey && !event.metaKey) return
+  event.preventDefault()
+  setZoom(previewZoom + (event.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP))
+}, { passive: false })
 
 motion.addEventListener('change', render)
 
@@ -1791,7 +1816,6 @@ function loadFixedLogo(attempt = 0) {
     .catch(() => { if (attempt < 2) setTimeout(() => loadFixedLogo(attempt + 1), 1200) })
 }
 loadFixedLogo()
-decodeImage(LOGO_BADGE_PATH).then(image => { logoBadge = image; render() }).catch(() => {})
 
 const pendingArtwork = new Map()
 
