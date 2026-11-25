@@ -42,7 +42,7 @@ let backsoundNama = ''
 let gayaAset = readStorage('kabar-air-gaya-aset', {}) || {}
 let gayaAktif = null
 const WARNA_OUTLINE_BAWAAN = '#0b2943'
-const gayaBawaan = { size: 100, color: '', outline: false, outlineColor: WARNA_OUTLINE_BAWAAN, outlineWidth: 2 }
+const gayaBawaan = { size: 100, color: '', bg: '', outline: false, outlineColor: WARNA_OUTLINE_BAWAAN, outlineWidth: 2 }
 
 function gayaUntuk(id) {
   const simpan = (id && gayaAset[id]) || {}
@@ -51,6 +51,27 @@ function gayaUntuk(id) {
 
 function simpanGayaAset() {
   storeLocal('kabar-air-gaya-aset', gayaAset)
+}
+
+/* Warna kotak/tabel per aset (kosong = warna bawaan desain). */
+function warnaKotak(bawaan) {
+  const bg = gayaAktif ? gayaUntuk(gayaAktif).bg : ''
+  return /^#[0-9a-f]{6}$/i.test(bg || '') ? bg : bawaan
+}
+
+/* Versi yang tidak bergantung konteks gambar (untuk blok di luar renderBlock). */
+function warnaKotakAset(id, bawaan) {
+  const bg = (gayaAset[id] && gayaAset[id].bg) || ''
+  return /^#[0-9a-f]{6}$/i.test(bg) ? bg : bawaan
+}
+
+/* Pilih tinta gelap/terang otomatis agar teks tetap terbaca di atas warna kotak. */
+function kontrasDi(warna, tinta) {
+  const hex = String(warna || '').replace('#', '')
+  if (hex.length !== 6) return tinta
+  const [r, g, b] = [0, 2, 4].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+  const terang = 0.2126 * r + 0.7152 * g + 0.0722 * b
+  return terang < 0.55 ? '#ffffff' : tinta
 }
 
 /* Sekali jalan: buang outline bawaan lama pada Wilayah Terdampak. */
@@ -572,10 +593,11 @@ function drawSocial(index, handle, x, y, width) {
 }
 
 function drawPhoto(image, x, y, width, height, index) {
-  rounded(x, y, width, height, 22, '#e9f4fe')
+  const bg = warnaKotakAset('photos', '#e9f4fe')
+  rounded(x, y, width, height, 22, bg)
   if (!image) {
     ctx.textAlign = 'center'
-    label('Media pekerjaan ' + (index + 1), x + width / 2, y + height / 2 + 9, 28, '#294b6e')
+    label('Media pekerjaan ' + (index + 1), x + width / 2, y + height / 2 + 9, 28, kontrasDi(bg, '#294b6e'))
     ctx.textAlign = 'start'
     return
   }
@@ -620,8 +642,10 @@ function drawMediaBlock(f, index, x, y, width, height, repair) {
 }
 
 function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840, title = '') {
-  rounded(x, y, width, height, 22, '#fff0bb')
-  rounded(x + 18, y + 17, 53, 53, 13, dark)
+  const bg = warnaKotak('#fff0bb')
+  const tinta = kontrasDi(bg, dark)
+  rounded(x, y, width, height, 22, bg)
+  rounded(x + 18, y + 17, 53, 53, 13, tinta)
   ctx.save()
   ctx.translate(x + 26, y + 24)
   ctx.fillStyle = '#ffffff'
@@ -644,10 +668,10 @@ function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840, title =
   ctx.rect(x + 8, y + 6, width - 16, height - 12)
   ctx.clip()
   setFont('adviceTitle')
-  labelFit(title || 'IMBAUAN PELANGGAN', x + 90, y + 32, 19, dark, 800, width - 112)
+  labelFit(title || 'IMBAUAN PELANGGAN', x + 90, y + 32, 19, tinta, 800, width - 112)
   setFont('advice')
   const langkahImbauan = Math.round((fontSize + 7) * skalaHuruf('advice'))
-  lines.forEach((line, index) => label(line, x + 90, y + 67 + index * langkahImbauan, fontSize, dark, 700))
+  lines.forEach((line, index) => label(line, x + 90, y + 67 + index * langkahImbauan, fontSize, tinta, 700))
   ctx.restore()
 }
 
@@ -769,43 +793,63 @@ function barisWilayah(geo, lebar) {
 }
 
 function drawCauseBox(cause, note, x, y, w, dark, causeTitle = '', h = 172) {
-  rounded(x, y, w, h, 23, '#fff0bb')
+  const bg = warnaKotak('#fff0bb')
+  const tinta = kontrasDi(bg, dark)
+  rounded(x, y, w, h, 23, bg)
   setFont('note')
   ctx.save()
   ctx.beginPath()
   ctx.rect(x + 10, y + 8, w - 20, Math.max(10, h - 16))
   ctx.clip()
-  block(causeTitle || cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
-  block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, dark, 600)
+  block(causeTitle || cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, tinta, 800)
+  block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, tinta, 600)
   ctx.restore()
 }
 
 function drawScheduleBox(f, x, y, w, dark, bright, h = 162) {
-  rounded(x, y, w, h, 23, '#ffffff')
+  const bg = warnaKotak('#ffffff')
+  const tinta = kontrasDi(bg, dark)
+  const judul = kontrasDi(bg, bright)
+  rounded(x, y, w, h, 23, bg)
   const mid = x + Math.round(w / 2)
-  ctx.fillStyle = '#d8e7f0'
+  ctx.fillStyle = judul
+  ctx.globalAlpha = .25
   ctx.fillRect(mid, y + 23, 2, Math.max(60, h - 47))
-  label('MULAI PEKERJAAN', x + 30, y + 37, 21, bright)
-  label('PERKIRAAN SELESAI', mid + 30, y + 37, 21, bright)
+  ctx.globalAlpha = 1
+  label('MULAI PEKERJAAN', x + 30, y + 37, 21, judul)
+  label('PERKIRAAN SELESAI', mid + 30, y + 37, 21, judul)
   const half = Math.round(w / 2) - 48
   ctx.save()
   ctx.beginPath()
   ctx.rect(x + 10, y + 8, w - 20, Math.max(10, h - 16))
   ctx.clip()
-  drawSchedule(f.startDate, f.startTime, x + 30, y, dark, bright, false, half)
-  drawSchedule(f.endDate, f.endTime, mid + 30, y, dark, bright, f.finishMode === 'until', half)
+  drawSchedule(f.startDate, f.startTime, x + 30, y, tinta, judul, false, half)
+  drawSchedule(f.endDate, f.endTime, mid + 30, y, tinta, judul, f.finishMode === 'until', half)
   ctx.restore()
 }
 
 function drawAreasBox(geo, x, y, w, accent, bright, dark, h = geo.areaHeight + 31, kolom = null) {
   const groups = kolom || { left: geo.left, right: geo.right, columns: geo.columns }
-  label('WILAYAH TERDAMPAK', x + 1, y + 27, 26, accent)
-  rounded(x, y + 45, w, h, 22, '#ffffff')
+  const bg = warnaKotak('#ffffff')
+  const tinta = kontrasDi(bg, dark)
+  /* Judul ikut di dalam tabel supaya selalu terbaca, apa pun latar banner-nya. */
+  rounded(x, y, w, h, 22, bg)
+  ctx.save()
+  ctx.fillStyle = accent
+  ctx.beginPath()
+  ctx.roundRect(x + 24, y + 15, 5, 24, 3)
+  ctx.fill()
+  ctx.restore()
+  label('WILAYAH TERDAMPAK', x + 38, y + 34, 26, tinta, 800)
+  ctx.fillStyle = tinta
+  ctx.globalAlpha = .16
+  ctx.fillRect(x + 24, y + 51, w - 48, 2)
+  ctx.globalAlpha = 1
   setFont('area')
   const columnX = groups.columns === 2 ? [x + 29, x + Math.round(w / 2) + 16] : [x + 29]
   ctx.save()
   ctx.beginPath()
-  ctx.rect(x + 8, y + 50, w - 16, Math.max(10, h - 12))
+  ctx.rect(x + 8, y + 54, w - 16, Math.max(10, h - 62))
   ctx.clip()
   for (const [index, group] of [groups.left, groups.right].entries()) {
     if (!columnX[index]) continue
@@ -814,7 +858,7 @@ function drawAreasBox(geo, x, y, w, accent, bright, dark, h = geo.areaHeight + 3
     for (const lines of group) {
       label('•', columnX[index], rowY, 27, bright)
       for (const line of lines) {
-        label(line, columnX[index] + Math.round(27 * sk), rowY, 27, dark, 600)
+        label(line, columnX[index] + Math.round(27 * sk), rowY, 27, tinta, 600)
         rowY += Math.round(34 * sk)
       }
       rowY += 8
@@ -1035,7 +1079,7 @@ function render() {
   const ukuranSosial = kotakBlok('socials', IW, footerHeight)
   renderBlock('socials', PAD, footerTop, ukuranSosial.w, ukuranSosial.h, () => {
     setFont()
-    rounded(PAD, footerTop, ukuranSosial.w, ukuranSosial.h, 19, dark)
+    rounded(PAD, footerTop, ukuranSosial.w, ukuranSosial.h, 19, warnaKotak(dark))
     for (const [index, account] of socials.entries()) {
       const x = index % 2 === 0 ? PAD + 23 : PAD + Math.round(ukuranSosial.w / 2) + 10
       const y = footerTop + (index < 2 ? 37 : 75)
@@ -1735,6 +1779,9 @@ const layerOutline = document.querySelector('#layer-outline')
 const layerOutlineColor = document.querySelector('#layer-outline-color')
 const layerOutlineWidth = document.querySelector('#layer-outline-width')
 const layerOutlineValue = document.querySelector('#layer-outline-value')
+const boxColorField = document.querySelector('#box-color-field')
+const layerBoxColor = document.querySelector('#layer-box-color')
+const resetBoxColor = document.querySelector('#reset-box-color')
 const fontTools = document.querySelector('#font-tools')
 
 /* Aset yang punya huruf: ukuran, warna, dan outline bisa diatur. */
@@ -1743,6 +1790,11 @@ const asetBerhuruf = new Set(['title', 'extra', 'agency', 'banner', 'cause', 'sc
 
 /* Aset yang punya kotak (kartu/tabel) sehingga lebar/tingginya bisa diatur. */
 const asetBerkotak = new Set(['cause', 'schedule', 'areas', 'advice', 'photos', 'socials'])
+/* Warna kotak bawaan desain, dipakai saat pengguna belum memilih warna. */
+const WARNA_KOTAK_BAWAAN = {
+  cause: '#fff0bb', advice: '#fff0bb', schedule: '#ffffff',
+  areas: '#ffffff', photos: '#e9f4fe', socials: '#082137'
+}
 const labelAset = { ...movableLabels, photos: 'Media dokumentasi' }
 
 function showDecorationStatus(message) {
@@ -1769,10 +1821,15 @@ function syncLayerSize() {
   layerWidthValue.textContent = lebar + '%'
   layerHeightValue.textContent = ukuran.h + '%'
   const bisaHuruf = !!nama && !terkunci && asetBerhuruf.has(id) && !hiasan
+  const bisaWarnaKotak = bisaHuruf && asetBerkotak.has(id)
   const gaya = gayaUntuk(id)
   fontTools.dataset.mati = bisaHuruf ? '0' : '1'
+  boxColorField.hidden = resetBoxColor.hidden = !bisaWarnaKotak
+  layerBoxColor.disabled = resetBoxColor.disabled = !bisaWarnaKotak
   layerFontSize.disabled = layerFontColor.disabled = resetFontColor.disabled = layerOutline.disabled =
     layerOutlineColor.disabled = layerOutlineWidth.disabled = !bisaHuruf
+  layerBoxColor.value = /^#[0-9a-f]{6}$/i.test(gaya.bg || '') ? gaya.bg : WARNA_KOTAK_BAWAAN[id] || '#ffffff'
+  layerBoxColor.title = gaya.bg ? 'Warna kotak: ' + gaya.bg : 'Warna kotak bawaan desain'
   layerFontSize.value = String(gaya.size)
   layerFontValue.textContent = gaya.size + '%'
   layerFontColor.value = /^#[0-9a-f]{6}$/i.test(gaya.color) ? gaya.color : '#ffffff'
@@ -2026,6 +2083,8 @@ layerFontSize.addEventListener('input', () => {
 })
 layerFontColor.addEventListener('input', () => ubahGayaHuruf({ color: layerFontColor.value }))
 resetFontColor.addEventListener('click', () => ubahGayaHuruf({ color: '' }))
+layerBoxColor.addEventListener('input', () => ubahGayaHuruf({ bg: layerBoxColor.value }))
+resetBoxColor.addEventListener('click', () => ubahGayaHuruf({ bg: '' }))
 layerOutline.addEventListener('change', () => ubahGayaHuruf({ outline: layerOutline.checked }))
 layerOutlineColor.addEventListener('input', () => ubahGayaHuruf({ outlineColor: layerOutlineColor.value }))
 layerOutlineWidth.addEventListener('input', () => {
