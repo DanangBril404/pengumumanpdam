@@ -27,7 +27,7 @@ const formalFonts = {
 }
 const fontLabels = {
   title: 'Judul', extra: 'Teks tambahan', note: 'Rincian penyebab',
-  area: 'Wilayah terdampak', advice: 'Imbauan pelanggan',
+  area: 'Wilayah terdampak', advice: 'Imbauan pelanggan', adviceTitle: 'Judul imbauan',
   caption1: 'Keterangan foto 1', caption2: 'Keterangan foto 2'
 }
 const canvas = document.querySelector('#poster')
@@ -75,8 +75,7 @@ const example = {
   finishMode: 'scheduled',
   note: '',
   advice: 'Pelanggan di wilayah terdampak diimbau menampung air secukupnya untuk kebutuhan rumah tangga.',
-  advicePosition: 'after',
-  adviceX: '50',
+  adviceTitle: 'IMBAUAN PELANGGAN',
   adviceScale: '100',
   docX: '',
   docY: '',
@@ -220,35 +219,34 @@ function snapPosterPosition(id, x, y, box, limits) {
 }
 
 const posterBlocks = new Map()
-const blockScaleKey = 'kabar-air-block-scale'
+const blockSizeKey = 'kabar-air-block-size'
 const lockedKey = 'kabar-air-locked-layers'
-let blockScales = readStorage(blockScaleKey, {})
+let blockSizes = readStorage(blockSizeKey, {})
 let lockedLayers = new Set(readStorage(lockedKey, []))
 
-function skalaBlok(id) {
-  const nilai = Number(blockScales[id])
-  return nilai >= 0.3 && nilai <= 2.5 ? nilai : 1
+/* Lebar/tinggi kotak aset terpilih (persen dari ukuran aslinya). Hanya kotak
+   aset yang berubah; ukuran huruf tetap karena tidak ada penskalaan kanvas. */
+function ukuranBlok(id) {
+  const nilai = blockSizes[id] || {}
+  const lebar = Number(nilai.w)
+  const tinggi = Number(nilai.h)
+  return {
+    w: lebar >= 30 && lebar <= 220 ? lebar : 100,
+    h: tinggi >= 30 && tinggi <= 220 ? tinggi : 100
+  }
 }
 
-function skalaMaksimal(id) {
-  const entri = posterBlocks.get(id)
-  const lebar = entri && entri.naturalWidth ? entri.naturalWidth : 0
-  const tinggi = entri && entri.naturalHeight ? entri.naturalHeight : 0
-  if (!lebar || !tinggi) return 2.5
-  /* Aset tidak boleh melewati tepi kanan/bawah poster setelah diperbesar. */
-  const kanvasTinggi = canvas.height / (posterScale || 1)
-  const x = entri.bounds ? entri.bounds.x : 0
-  const y = entri.bounds ? entri.bounds.y : 0
-  const batasX = (layoutWidth - x) / lebar
-  const batasY = (kanvasTinggi - y) / tinggi
-  return Math.min(2.5, Math.max(1, Math.min(batasX, batasY)))
+function aturUkuranBlok(id, sumbu, nilai) {
+  const batas = Math.max(30, Math.min(220, Number(nilai) || 100))
+  const next = { ...ukuranBlok(id), [sumbu]: batas }
+  if (next.w === 100 && next.h === 100) delete blockSizes[id]
+  else blockSizes[id] = next
+  storeLocal(blockSizeKey, blockSizes)
 }
 
-function aturSkalaBlok(id, nilai) {
-  const s = Math.max(0.3, Math.min(skalaMaksimal(id), nilai))
-  if (Math.abs(s - 1) < 0.005) delete blockScales[id]
-  else blockScales[id] = s
-  storeLocal(blockScaleKey, blockScales)
+function kotakBlok(id, w, h) {
+  const ukuran = ukuranBlok(id)
+  return { w: Math.round(w * ukuran.w / 100), h: Math.round(h * ukuran.h / 100) }
 }
 
 function simpanKunci() {
@@ -318,7 +316,6 @@ function posterBlockLimits(width, height) {
 function renderBlock(id, x, y, width, height, draw) {
   if (hiddenLayers.has(id)) return
   const entry = posterBlocks.get(id)
-  const skala = skalaBlok(id)
   const transform = ctx.getTransform()
   const baseY = y + transform.f / posterScale
   const saved = blockPositions[id]
@@ -326,32 +323,23 @@ function renderBlock(id, x, y, width, height, draw) {
   const savedX = saved ? saved.x * layoutWidth / 1080 : null
   const nextX = saved ? Math.max(limits.minX, Math.min(limits.maxX, savedX)) : x
   const nextY = saved ? Math.max(limits.minY, Math.min(limits.maxY, saved.y)) : baseY
-  /* Aset diskalakan dari pojok kiri-atasnya supaya tidak melewati tepi kiri/atas
-     poster; kotak sentuh ikut membesar/mengecil. */
-  const lebarAset = width * skala
-  const tinggiAset = height * skala
+  /* Kotak sentuh mengikuti ukuran blok apa adanya (lebar/tinggi kotak diatur
+     lewat panel "Ukuran kotak aset terpilih", bukan penskalaan kanvas). */
   const kotakX = nextX
   const kotakY = nextY
   entry.naturalWidth = width
   entry.naturalHeight = height
-  entry.bounds = { x: kotakX, y: kotakY, width: lebarAset, height: tinggiAset }
+  entry.bounds = { x: kotakX, y: kotakY, width, height }
   const style = entry.handle.style
   const left = transform.e + kotakX * posterScale
   const top = kotakY * posterScale
   style.left = Math.max(0, left) / canvas.width * 100 + '%'
   style.top = Math.max(0, top) / canvas.height * 100 + '%'
-  style.width = (Math.min(canvas.width, left + lebarAset * posterScale) - Math.max(0, left)) / canvas.width * 100 + '%'
-  style.height = (Math.min(canvas.height, top + tinggiAset * posterScale) - Math.max(0, top)) / canvas.height * 100 + '%'
+  style.width = (Math.min(canvas.width, left + width * posterScale) - Math.max(0, left)) / canvas.width * 100 + '%'
+  style.height = (Math.min(canvas.height, top + height * posterScale) - Math.max(0, top)) / canvas.height * 100 + '%'
   entry.handle.hidden = lockedLayers.has(id)
   ctx.save()
   ctx.translate(nextX - x, nextY - baseY)
-  if (skala !== 1) {
-    /* Skala di sekitar titik asal blok (x, baseY) supaya isi tetap mulai di posisi
-       yang sama dan hanya tumbuh ke kanan/bawah. */
-    ctx.translate(x, baseY)
-    ctx.scale(skala, skala)
-    ctx.translate(-x, -baseY)
-  }
   draw()
   ctx.restore()
 }
@@ -558,7 +546,7 @@ function drawDocumentation(f, x, y, count, height, repair, accent, docWidth = do
   setFont()
 }
 
-function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840) {
+function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840, title = '') {
   rounded(x, y, width, height, 22, '#fff0bb')
   rounded(x + 18, y + 17, 53, 53, 13, dark)
   ctx.save()
@@ -578,9 +566,15 @@ function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840) {
   ctx.closePath()
   ctx.fill()
   ctx.restore()
-  label('IMBAUAN PELANGGAN', x + 90, y + 32, 19, dark, 800)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 8, y + 6, width - 16, height - 12)
+  ctx.clip()
+  setFont('adviceTitle')
+  labelFit(title || 'IMBAUAN PELANGGAN', x + 90, y + 32, 19, dark, 800, width - 112)
   setFont('advice')
   lines.forEach((line, index) => label(line, x + 90, y + 67 + index * (fontSize + 7), fontSize, dark, 700))
+  ctx.restore()
 }
 
 /* Lebar tata letak kolom isi: 1080 = desain asli. Saat poster dilebarkan atau
@@ -656,7 +650,7 @@ function measureLayout(f, LW, repair) {
       cause: { x: PAD, y: 325, w: IW, h: 172 },
       schedule: { x: PAD, y: 516, w: IW, h: 162 },
       areas: { x: PAD, y: 650, w: IW, h: areaHeight + 76 },
-      advice: { x: PAD + Number(f.adviceX) / 100 * 112, y: 0, w: Math.round(IW * .882), h: adviceHeight }
+      advice: { x: PAD + 56, y: 0, w: Math.round(IW * .882), h: adviceHeight }
     }
     bodyBottom = 650 + areaHeight + 76 + shift + adviceSpace
     naturalHeight = 974 + areaHeight + footerHeight - 100 + photoSpace + shift + adviceSpace
@@ -667,31 +661,66 @@ function measureLayout(f, LW, repair) {
     adviceHeight, adviceSpace, footerHeight, blocks, naturalHeight, bodyBottom }
 }
 
-function drawCauseBox(cause, note, x, y, w, dark, causeTitle = '') {
-  rounded(x, y, w, 172, 23, '#fff0bb')
-  setFont('note')
-  block(causeTitle || cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
-  block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, dark, 600)
+/* Bila lebar/tinggi kotak tabel diubah, teks dibungkus ulang mengikuti lebar
+   kotak baru — ukuran huruf tetap sama, hanya jumlah baris yang menyesuaikan. */
+function barisImbauan(f, lebar, ukuran) {
+  if (!f.advice) return []
+  setFont('advice')
+  typeface(ukuran, 700)
+  return wrap(f.advice, Math.max(140, lebar - 112))
 }
 
-function drawScheduleBox(f, x, y, w, dark, bright) {
-  rounded(x, y, w, 162, 23, '#ffffff')
+function barisWilayah(geo, lebar) {
+  setFont('area')
+  typeface(27, 600)
+  const kolom = geo.columns === 2 && lebar >= 520 ? 2 : 1
+  const lebarIsi = kolom === 2 ? Math.round(lebar / 2 - 37) : lebar - 52
+  const daftar = (geo.areas.length ? geo.areas : ['Belum diinformasikan'])
+    .map(area => wrap(area, Math.max(90, lebarIsi - 32)))
+  const split = kolom === 2 ? Math.ceil(daftar.length / 2) : daftar.length
+  return { left: daftar.slice(0, split), right: daftar.slice(split), columns: kolom }
+}
+
+function drawCauseBox(cause, note, x, y, w, dark, causeTitle = '', h = 172) {
+  rounded(x, y, w, h, 23, '#fff0bb')
+  setFont('note')
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 10, y + 8, w - 20, Math.max(10, h - 16))
+  ctx.clip()
+  block(causeTitle || cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
+  block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, dark, 600)
+  ctx.restore()
+}
+
+function drawScheduleBox(f, x, y, w, dark, bright, h = 162) {
+  rounded(x, y, w, h, 23, '#ffffff')
   const mid = x + Math.round(w / 2)
   ctx.fillStyle = '#d8e7f0'
-  ctx.fillRect(mid, y + 23, 2, 115)
+  ctx.fillRect(mid, y + 23, 2, Math.max(60, h - 47))
   label('MULAI PEKERJAAN', x + 30, y + 37, 21, bright)
   label('PERKIRAAN SELESAI', mid + 30, y + 37, 21, bright)
   const half = Math.round(w / 2) - 48
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 10, y + 8, w - 20, Math.max(10, h - 16))
+  ctx.clip()
   drawSchedule(f.startDate, f.startTime, x + 30, y, dark, bright, false, half)
   drawSchedule(f.endDate, f.endTime, mid + 30, y, dark, bright, f.finishMode === 'until', half)
+  ctx.restore()
 }
 
-function drawAreasBox(geo, x, y, w, accent, bright, dark) {
+function drawAreasBox(geo, x, y, w, accent, bright, dark, h = geo.areaHeight + 31, kolom = null) {
+  const groups = kolom || { left: geo.left, right: geo.right, columns: geo.columns }
   label('WILAYAH TERDAMPAK', x + 1, y + 27, 26, accent)
-  rounded(x, y + 45, w, geo.areaHeight + 31, 22, '#ffffff')
+  rounded(x, y + 45, w, h, 22, '#ffffff')
   setFont('area')
-  const columnX = geo.columns === 2 ? [x + 29, x + Math.round(w / 2) + 16] : [x + 29]
-  for (const [index, group] of [geo.left, geo.right].entries()) {
+  const columnX = groups.columns === 2 ? [x + 29, x + Math.round(w / 2) + 16] : [x + 29]
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x + 8, y + 50, w - 16, Math.max(10, h - 12))
+  ctx.clip()
+  for (const [index, group] of [groups.left, groups.right].entries()) {
     if (!columnX[index]) continue
     let rowY = y + 81
     for (const lines of group) {
@@ -703,6 +732,7 @@ function drawAreasBox(geo, x, y, w, accent, bright, dark) {
       rowY += 8
     }
   }
+  ctx.restore()
 }
 
 function render() {
@@ -770,18 +800,19 @@ function render() {
     const image = layer.type === 'custom' ? decorationArtwork.get(layer.id) : null
     if (layer.type === 'custom' && !image) continue
     const logicalHeight = height / posterScale
-    const width = Math.round((LW - 40) * layer.width / 100)
-    const x = (LW - width) / 2
-    const artHeight = image ? width * image.height / image.width : Math.floor(logicalHeight * .75)
+    const lebarHiasan = Math.round((LW - 40) * layer.width / 100)
+    const x = (LW - lebarHiasan) / 2
+    const dasarTinggi = image ? lebarHiasan * image.height / image.width : Math.floor(logicalHeight * .75)
+    const artHeight = Math.round(dasarTinggi * ukuranBlok(layer.id).h / 100)
     const y = image ? (logicalHeight - artHeight) / 2 : logicalHeight - artHeight
-    renderBlock(layer.id, x, y, width, artHeight, () => {
+    renderBlock(layer.id, x, y, lebarHiasan, artHeight, () => {
       if (image) {
-        drawFeathered(ctx, image, x, y, width, artHeight,
-          { left: width * .07, right: width * .07, top: artHeight * .07, bottom: artHeight * .07 })
+        drawFeathered(ctx, image, x, y, lebarHiasan, artHeight,
+          { left: lebarHiasan * .07, right: lebarHiasan * .07, top: artHeight * .07, bottom: artHeight * .07 })
       } else {
         ctx.save()
         ctx.translate(x, y)
-        paintPosterDecoration(ctx, layer.type, width, artHeight, accent)
+        paintPosterDecoration(ctx, layer.type, lebarHiasan, artHeight, accent)
         ctx.restore()
       }
     })
@@ -830,36 +861,45 @@ function render() {
 
   if (wide) {
     const c = blocks.cause, s = blocks.schedule, a = blocks.advice, ar = blocks.areas
-    renderBlock('cause', c.x, c.y, c.w, c.h, () => drawCauseBox(cause, f.note, c.x, c.y, c.w, dark, f.causeTitle))
-    renderBlock('schedule', s.x, s.y, s.w, s.h, () => drawScheduleBox(f, s.x, s.y, s.w, dark, bright))
+    const kc = kotakBlok('cause', c.w, c.h), ks = kotakBlok('schedule', s.w, s.h)
+    const ka = kotakBlok('advice', a.w, a.h), kr = kotakBlok('areas', ar.w, ar.h)
+    const isiImbauan = ka.w === a.w ? adviceLines : barisImbauan(f, ka.w, adviceSize)
+    const kolomWilayah = kr.w === ar.w ? null : barisWilayah(geo, kr.w)
+    setFont()
+    renderBlock('cause', c.x, c.y, kc.w, kc.h,
+      () => drawCauseBox(cause, f.note, c.x, c.y, kc.w, dark, f.causeTitle, kc.h))
+    renderBlock('schedule', s.x, s.y, ks.w, ks.h,
+      () => drawScheduleBox(f, s.x, s.y, ks.w, dark, bright, ks.h))
     if (adviceSpace) {
-      renderBlock('advice', a.x, a.y, a.w, a.h,
-        () => drawAdvice(f, a.x, a.y, adviceLines, adviceSize, a.h, dark, a.w))
+      renderBlock('advice', a.x, a.y, ka.w, ka.h,
+        () => drawAdvice(f, a.x, a.y, isiImbauan, adviceSize, ka.h, dark, ka.w, f.adviceTitle))
     }
-    renderBlock('areas', ar.x, ar.y, ar.w, ar.h,
-      () => drawAreasBox(geo, ar.x, ar.y, ar.w, accent, bright, dark))
+    renderBlock('areas', ar.x, ar.y, kr.w, kr.h,
+      () => drawAreasBox(geo, ar.x, ar.y, kr.w, accent, bright, dark, kr.h, kolomWilayah))
   } else {
     ctx.save()
     ctx.translate(0, shift + spacing)
-    renderBlock('cause', PAD, 325, IW, 172, () => drawCauseBox(cause, f.note, PAD, 325, IW, dark, f.causeTitle))
+    const kc = kotakBlok('cause', IW, 172)
+    renderBlock('cause', PAD, 325, kc.w, kc.h,
+      () => drawCauseBox(cause, f.note, PAD, 325, kc.w, dark, f.causeTitle, kc.h))
     ctx.translate(0, spacing)
-    renderBlock('schedule', PAD, 516, IW, 162, () => drawScheduleBox(f, PAD, 516, IW, dark, bright))
+    const ks = kotakBlok('schedule', IW, 162)
+    renderBlock('schedule', PAD, 516, ks.w, ks.h,
+      () => drawScheduleBox(f, PAD, 516, ks.w, dark, bright, ks.h))
     ctx.translate(0, 52 + spacing)
-    const adviceX = PAD + Number(f.adviceX) / 100 * 112
-    const adviceWidth = Math.round(IW * .882)
-    const showAdvice = y => renderBlock('advice', adviceX, y, adviceWidth, adviceHeight,
-      () => drawAdvice(f, adviceX, y, adviceLines, adviceSize, adviceHeight, dark, adviceWidth))
-    if (adviceSpace && f.advicePosition === 'before') {
-      showAdvice(646)
+    const adviceX = PAD + 56
+    const ka = kotakBlok('advice', Math.round(IW * .882), adviceHeight)
+    const kr = kotakBlok('areas', IW, areaHeight + 76)
+    const isiImbauan = ka.w === Math.round(IW * .882) ? adviceLines : barisImbauan(f, ka.w, adviceSize)
+    const kolomWilayah = kr.w === IW ? null : barisWilayah(geo, kr.w)
+    setFont()
+    renderBlock('areas', PAD, 650, kr.w, kr.h,
+      () => drawAreasBox(geo, PAD, 650, kr.w, accent, bright, dark, kr.h, kolomWilayah))
+    if (adviceSpace) {
+      renderBlock('advice', adviceX, 744 + areaHeight, ka.w, ka.h,
+        () => drawAdvice(f, adviceX, 744 + areaHeight, isiImbauan, adviceSize, ka.h, dark, ka.w, f.adviceTitle))
       ctx.translate(0, adviceSpace)
     }
-    renderBlock('areas', PAD, 650, IW, areaHeight + 76, () => drawAreasBox(geo, PAD, 650, IW, accent, bright, dark))
-    const afterPhotos = photoCount && f.advicePosition === 'photos'
-    if (adviceSpace && f.advicePosition !== 'before' && !afterPhotos) {
-      showAdvice(744 + areaHeight)
-      ctx.translate(0, adviceSpace)
-    }
-    if (adviceSpace && afterPhotos) showAdvice(851 + areaHeight + photoHeight)
     ctx.restore()
   }
 
@@ -867,27 +907,32 @@ function render() {
   photoDrag.hidden = !photoCount || hiddenLayers.has('photos')
   docBounds = null
   if (!photoDrag.hidden) {
-    const docHeight = photoHeight + 35
-    const maxX = LW - docWidth - 48
+    const ukuranFoto = ukuranBlok('photos')
+    const lebarFoto = Math.round(docWidth * ukuranFoto.w / 100)
+    const tinggiFoto = Math.round(photoHeight * ukuranFoto.h / 100)
+    const docHeight = tinggiFoto + 35
+    const maxX = LW - lebarFoto - 48
     const maxY = footerTop - docHeight - 12
     const defaultY = wide ? geo.bodyBottom + 12
-      : 846 + areaHeight + shift + spacing * 3 + (f.advicePosition === 'photos' ? 0 : adviceSpace)
+      : 846 + areaHeight + shift + spacing * 3 + adviceSpace
     const x = Math.max(48, Math.min(maxX, f.docX === '' ? 120 : Number(f.docX)))
     const y = Math.max(24, Math.min(maxY, f.docY === '' ? defaultY : Number(f.docY)))
-    docBounds = { x, y, width: docWidth, height: docHeight, maxX, maxY }
-    drawDocumentation(f, x, y, photoCount, photoHeight, repair, accent, docWidth)
+    docBounds = { x, y, width: lebarFoto, height: docHeight, maxX, maxY }
+    drawDocumentation(f, x, y, photoCount, tinggiFoto, repair, accent, lebarFoto)
     photoDrag.style.left = (offset + x * posterScale) / canvas.width * 100 + '%'
     photoDrag.style.top = y * posterScale / height * 100 + '%'
-    photoDrag.style.width = docWidth * posterScale / canvas.width * 100 + '%'
+    photoDrag.style.width = lebarFoto * posterScale / canvas.width * 100 + '%'
     photoDrag.style.height = docHeight * posterScale / height * 100 + '%'
   }
-  renderBlock('socials', PAD, footerTop, IW, footerHeight, () => {
+  const ukuranSosial = kotakBlok('socials', IW, footerHeight)
+  renderBlock('socials', PAD, footerTop, ukuranSosial.w, ukuranSosial.h, () => {
     setFont()
-    rounded(PAD, footerTop, IW, footerHeight, 19, dark)
+    rounded(PAD, footerTop, ukuranSosial.w, ukuranSosial.h, 19, dark)
     for (const [index, account] of socials.entries()) {
-      const x = index % 2 === 0 ? PAD + 23 : MID + 10
+      const x = index % 2 === 0 ? PAD + 23 : PAD + Math.round(ukuranSosial.w / 2) + 10
       const y = footerTop + (index < 2 ? 37 : 75)
-      drawSocial(index, account.split('  ')[1], x, y, index % 2 === 0 ? Math.round(IW * .467) : Math.round(IW * .462))
+      drawSocial(index, account.split('  ')[1], x, y,
+        index % 2 === 0 ? Math.round(ukuranSosial.w * .467) : Math.round(ukuranSosial.w * .462))
     }
   })
 
@@ -954,7 +999,6 @@ function update() {
 form.addEventListener('submit', event => event.preventDefault())
 form.addEventListener('input', event => {
   if (event.target === form.elements.photoLayout) form.elements.docX.value = form.elements.docY.value = ''
-  if (event.target === form.elements.advicePosition || event.target === form.elements.adviceX) delete blockPositions.advice
   if (event.target === form.elements.cause) {
     form.elements.note.value = selectedCause(event.target.value)?.text ?? ''
   }
@@ -1452,15 +1496,47 @@ async function loadImageFile(file) {
 
 const decorationUpload = document.querySelector('#upload-decoration')
 const decorationStatus = document.querySelector('#decoration-status')
-const decorationWidth = document.querySelector('#decoration-width')
-const decorationWidthValue = document.querySelector('#decoration-width-value')
-const decorationWidthRow = document.querySelector('#decoration-width-row')
-const scaleHint = document.querySelector('#scale-hint')
+const layerWidth = document.querySelector('#layer-width')
+const layerWidthValue = document.querySelector('#layer-width-value')
+const layerHeight = document.querySelector('#layer-height')
+const layerHeightValue = document.querySelector('#layer-height-value')
+const layerSizeName = document.querySelector('#layer-size-name')
+const layerSizeHint = document.querySelector('#layer-size-hint')
+const resetLayerSize = document.querySelector('#reset-layer-size')
 const layerList = document.querySelector('#layer-list')
+
+/* Aset yang punya kotak (kartu/tabel) sehingga lebar/tingginya bisa diatur. */
+const asetBerkotak = new Set(['cause', 'schedule', 'areas', 'advice', 'photos', 'socials'])
+const labelAset = { ...movableLabels, photos: 'Foto dokumentasi' }
 
 function showDecorationStatus(message) {
   decorationStatus.hidden = !message
   decorationStatus.textContent = message
+}
+
+/* Panel "Ukuran kotak aset terpilih" di bawah pratinjau desain. */
+function syncLayerSize() {
+  const id = selectedDecorationId
+  const hiasan = decorationLayers.find(layer => layer.id === id)
+  const nama = hiasan ? (hiasan.name || decorationNames[hiasan.type])
+    : (id && Object.hasOwn(labelAset, id) ? labelAset[id] : '')
+  const bisa = !!nama && (!!hiasan || asetBerkotak.has(id))
+  const terkunci = !!id && lockedLayers.has(id)
+  const ukuran = id ? ukuranBlok(id) : { w: 100, h: 100 }
+  const lebar = hiasan ? Number(hiasan.width) || 100 : ukuran.w
+  layerSizeName.textContent = nama ? 'Ukuran kotak: ' + nama : 'Ukuran kotak aset terpilih'
+  layerWidth.min = hiasan ? '20' : '30'
+  layerWidth.max = hiasan ? '130' : '220'
+  layerWidth.disabled = layerHeight.disabled = resetLayerSize.disabled = !bisa || terkunci
+  layerWidth.value = String(lebar)
+  layerHeight.value = String(ukuran.h)
+  layerWidthValue.textContent = lebar + '%'
+  layerHeightValue.textContent = ukuran.h + '%'
+  layerSizeHint.textContent = !nama
+    ? 'Pilih tabel di panel Layer (Penyebab, Jadwal, Wilayah, Imbauan, Foto, Media sosial) atau hiasan. Lebar/Tinggi hanya mengubah kotaknya — huruf dan ukurannya tetap.'
+    : !bisa ? 'Aset ini teks tanpa kotak. Pilih tabel Penyebab, Jadwal, Wilayah, Imbauan, Foto dokumentasi, atau Media sosial.'
+      : terkunci ? 'Aset terkunci — buka kunci di panel Layer untuk mengubah ukuran.'
+        : 'Lebar/Tinggi hanya mengubah kotak tabel — huruf dan ukurannya tetap. Bila teks terpotong, naikkan Tinggi.'
 }
 
 function showLayerPanel() {
@@ -1470,27 +1546,14 @@ function showLayerPanel() {
   for (const layer of [...decorationLayers].reverse()) {
     addLayerRow(layer.id, layer.name || decorationNames[layer.type], layer)
   }
-  const aktif = selectedDecorationId
-  const hiasan = decorationLayers.find(layer => layer.id === aktif)
-  const bisaSkala = !!(aktif && (hiasan || Object.hasOwn(movableLabels, aktif)))
-  decorationWidthRow.hidden = !bisaSkala
-  scaleHint.hidden = !!bisaSkala
-  if (bisaSkala) {
-    const terkunci = lockedLayers.has(aktif)
-    const nilai = hiasan ? hiasan.width : Math.round(skalaBlok(aktif) * 100)
-    decorationWidth.min = hiasan ? '20' : '30'
-    decorationWidth.max = hiasan ? '130' : String(Math.round(skalaMaksimal(aktif) * 100))
-    decorationWidth.value = String(nilai)
-    decorationWidth.disabled = terkunci
-    decorationWidthValue.textContent = nilai + '%' + (terkunci ? ' · terkunci' : '')
-  }
+  syncLayerSize()
 }
 
 function addLayerRow(id, name, layer) {
   const row = document.createElement('div')
   row.className = 'layer-row'
   row.dataset.selected = String(selectedDecorationId === id)
-  const bisaAtur = !!layer || Object.hasOwn(movableLabels, id)
+  const bisaAtur = !!layer || Object.hasOwn(movableLabels, id) || asetBerkotak.has(id)
   const title = document.createElement(bisaAtur ? 'button' : 'span')
   title.className = bisaAtur ? 'layer-name layer-action' : 'layer-name'
   title.textContent = name
@@ -1500,7 +1563,7 @@ function addLayerRow(id, name, layer) {
     title.addEventListener('click', () => {
       selectedDecorationId = id
       showLayerPanel()
-      if (!lockedLayers.has(id)) decorationWidth.focus()
+      if (!lockedLayers.has(id)) layerWidth.focus()
     })
   }
   const toggle = document.createElement('button')
@@ -1559,9 +1622,9 @@ function addLayerRow(id, name, layer) {
       posterBlocks.get(id).handle.remove()
       posterBlocks.delete(id)
       delete blockPositions[id]
-      delete blockScales[id]
+      delete blockSizes[id]
       lockedLayers.delete(id)
-      storeLocal(blockScaleKey, blockScales)
+      storeLocal(blockSizeKey, blockSizes)
       simpanKunci()
       hiddenLayers.delete(id)
       decorationArtwork.delete(id)
@@ -1631,15 +1694,38 @@ function showOrnamentGallery() {
   }
 }
 
-decorationWidth.addEventListener('input', () => {
+function bisaAturUkuran(id) {
+  return !!id && (asetBerkotak.has(id) || decorationLayers.some(layer => layer.id === id))
+}
+
+layerWidth.addEventListener('input', () => {
   const id = selectedDecorationId
-  if (!id || lockedLayers.has(id)) return
-  const nilai = Number(decorationWidth.value)
-  const layer = decorationLayers.find(item => item.id === id)
-  if (layer) layer.width = nilai
-  else if (Object.hasOwn(movableLabels, id)) aturSkalaBlok(id, nilai / 100)
-  else return
-  decorationWidthValue.textContent = nilai + '%'
+  if (!bisaAturUkuran(id) || lockedLayers.has(id)) return
+  const hiasan = decorationLayers.find(layer => layer.id === id)
+  if (hiasan) hiasan.width = Math.max(20, Math.min(130, Number(layerWidth.value) || 100))
+  else aturUkuranBlok(id, 'w', layerWidth.value)
+  layerWidthValue.textContent = (hiasan ? hiasan.width : ukuranBlok(id).w) + '%'
+  render()
+  save()
+})
+
+layerHeight.addEventListener('input', () => {
+  const id = selectedDecorationId
+  if (!bisaAturUkuran(id) || lockedLayers.has(id)) return
+  aturUkuranBlok(id, 'h', layerHeight.value)
+  layerHeightValue.textContent = ukuranBlok(id).h + '%'
+  render()
+  save()
+})
+
+resetLayerSize.addEventListener('click', () => {
+  const id = selectedDecorationId
+  if (!bisaAturUkuran(id) || lockedLayers.has(id)) return
+  const hiasan = decorationLayers.find(layer => layer.id === id)
+  if (hiasan) hiasan.width = 100
+  delete blockSizes[id]
+  storeLocal(blockSizeKey, blockSizes)
+  syncLayerSize()
   render()
   save()
 })
@@ -1710,11 +1796,10 @@ document.querySelector('#save-layout').addEventListener('click', () => {
   }
   const existing = savedLayouts.find(item => item.name.toLocaleLowerCase('id') === name.toLocaleLowerCase('id'))
   const photo = [form.elements.docX.value, form.elements.docY.value]
-  const advice = [form.elements.advicePosition.value, form.elements.adviceX.value]
   const layout = {
     id: existing?.id ?? buatId(), name, template,
     positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
-    hidden: [...hiddenLayers], photo, advice
+    sizes: structuredClone(blockSizes), hidden: [...hiddenLayers], photo
   }
   const next = existing ? savedLayouts.map(item => item.id === layout.id ? layout : item) : [...savedLayouts, layout]
   if (!storeLocal(savedLayoutsKey, next)) return
@@ -1737,7 +1822,8 @@ applyLayoutButton.addEventListener('click', async () => {
   for (const id of layout.hidden) hiddenLayers.add(id)
   for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
   ;[form.elements.docX.value, form.elements.docY.value] = layout.photo
-  ;[form.elements.advicePosition.value, form.elements.adviceX.value] = layout.advice
+  blockSizes = layout.sizes && typeof layout.sizes === 'object' ? structuredClone(layout.sizes) : {}
+  storeLocal(blockSizeKey, blockSizes)
   showLayerPanel()
   if (Object.hasOwn(backdrops, layout.template)) selectBuiltin(layout.template)
   else if (customTemplates.some(entry => entry.id === layout.template)) await selectCustom(layout.template)

@@ -68,6 +68,10 @@
 .size-field span,.size-field output{font-size:11px}
 .size-auto{font-size:11px;padding-bottom:0}
 .stage{padding:12px}
+.layer-size-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) auto;align-items:end;gap:8px 12px;margin-top:10px;padding:10px 12px 6px;border-top:1px solid var(--line)}
+.layer-size-tools .layer-size-name{grid-column:1/-1;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.layer-size-tools .hint{grid-column:1/-1;margin:0}
+.layer-size-tools .size-field input[type=range]:disabled{opacity:.4}
 </style>
 </head>
 <body>
@@ -79,8 +83,6 @@
 <fieldset class="design-controls">
 <legend>Template poster</legend>
 <div class="template-category"><h3>Template Hiasan Poster</h3><div class="ornament-gallery" id="ornament-gallery" role="group" aria-label="Galeri template hiasan"></div></div>
-<label id="decoration-width-row" hidden>Skala aset terpilih <output id="decoration-width-value" for="decoration-width">100%</output><input id="decoration-width" type="range" min="20" max="200" step="1" value="100"></label>
-<p class="hint" id="scale-hint" hidden>Pilih layer di panel kanan untuk mengubah skalanya.</p>
 <label>Unggah ke galeri hiasan<input id="upload-decoration" type="file" accept="image/png,image/jpeg,image/webp" multiple></label>
 <p class="media-status" id="decoration-status" role="status" hidden></p>
 <div id="background-gallery">
@@ -134,9 +136,8 @@
 <label>Jenis perkiraan<select name="finishMode"><option value="scheduled">Tanggal dan jam</option><option value="until">Sampai selesai</option></select></label>
 <div class="row" id="end-fields"><label>Tanggal selesai<input name="endDate" type="date"></label><label>Jam selesai (WIB)<input name="endTime" type="time"></label></div></fieldset>
 <fieldset class="title-tools"><legend>Imbauan pelanggan</legend>
+<label class="font-field">Judul imbauan<button class="font-btn" type="button" data-font-for="adviceTitle" title="Ganti font" aria-label="Ganti font judul imbauan">Aa</button><input name="adviceTitle" maxlength="48" placeholder="IMBAUAN PELANGGAN"></label>
 <label class="font-field">Teks imbauan<button class="font-btn" type="button" data-font-for="advice" title="Ganti font" aria-label="Ganti font imbauan">Aa</button><textarea name="advice" maxlength="250" rows="3"></textarea></label>
-<label>Posisi vertikal<select name="advicePosition"><option value="before">Di atas wilayah</option><option value="after">Di bawah wilayah</option><option value="photos">Di bawah foto</option></select></label>
-<label>Geser kiri atau kanan<input type="range" name="adviceX" min="0" max="100" value="50"></label>
 <label>Ukuran huruf <output id="advice-size" for="advice-scale">100%</output><input id="advice-scale" type="range" name="adviceScale" min="70" max="150" step="5" value="100"></label>
 </fieldset>
 </form></section>
@@ -147,9 +148,10 @@
 <p class="media-status" id="layout-status" role="status" hidden></p>
 </div></details></div><div class="preview-workspace"><div class="stage"><div class="poster-wrap" id="poster-wrap"><canvas width="1080" height="1080" id="poster" role="img" aria-label="Pratinjau pengumuman aliran air"></canvas><i class="snap-guide" id="snap-x" aria-hidden="true" hidden></i><i class="snap-guide" id="snap-y" aria-hidden="true" hidden></i><button id="photo-drag" type="button" aria-label="Pindahkan foto dokumentasi dengan menarik atau tombol panah" hidden></button>
 <button id="banner-drag" type="button" aria-label="Geser foto banner dengan menarik atau tombol panah" hidden></button><div class="spray" id="repair-spray" aria-hidden="true" hidden><i style="--x:77%;--delay:0s"></i><i style="--x:80%;--delay:.37s"></i><i style="--x:83%;--delay:.8s"></i></div></div></div><aside class="layer-panel" aria-label="Layer poster"><h3>Layer</h3><div class="layer-list" id="layer-list"></div></aside></div>
+<div class="layer-size-tools" id="layer-size-tools"><span class="layer-size-name" id="layer-size-name">Ukuran kotak aset terpilih</span><label class="size-field"><span>Lebar <output id="layer-width-value" for="layer-width">100%</output></span><input id="layer-width" type="range" min="30" max="220" step="1" value="100" aria-label="Lebar kotak aset terpilih"></label><label class="size-field"><span>Tinggi <output id="layer-height-value" for="layer-height">100%</output></span><input id="layer-height" type="range" min="30" max="220" step="1" value="100" aria-label="Tinggi kotak aset terpilih"></label><button class="btn icon-btn" id="reset-layer-size" type="button" title="Kembalikan ukuran kotak ke 100%" aria-label="Kembalikan ukuran kotak ke 100%">⟲</button><p class="hint" id="layer-size-hint">Pilih aset di panel Layer. Lebar/Tinggi hanya mengubah kotak aset — huruf dan ukurannya tetap.</p></div>
 <div class="tools"><label class="motion" id="motion-control" hidden><input id="motion" type="checkbox" checked>Animasi pratinjau</label><div class="actions"><button class="btn" type="button" id="copy">Salin teks</button><button class="btn primary" type="button" id="download">Unduh PNG</button></div></div>
 </section></div>
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
 <div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
-<script src="backgrounds.js?v=20261128c"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261128c"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261129a"></script></body></html>
+<script src="backgrounds.js?v=20261128c"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261128c"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261130d"></script></body></html>
