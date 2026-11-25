@@ -117,6 +117,8 @@ const example = {
   adviceScale: '100',
   docX: '',
   docY: '',
+  docX2: '',
+  docY2: '',
   photoLayout: '0',
   caption1: '',
   caption2: ''
@@ -145,7 +147,9 @@ let posterWidth = 1080
 let posterHeight = 1350
 let posterHeightAuto = false
 let docBounds = null
+let docBoundsList = []
 const photoDrag = document.querySelector('#photo-drag')
+const photoDrag2 = document.querySelector('#photo-drag-2')
 const documentationWidth = 840
 const photos = [null, null]
 /* Slot foto yang sedang memutar video (dipakai saat merekam video). */
@@ -247,7 +251,7 @@ function snapPosterPosition(id, x, y, box, limits) {
   const vertical = [0, 64, height / 2, height - 64, height]
   const others = [...posterBlocks.entries()].filter(([key, entry]) => key !== id && entry.bounds)
     .map(([, entry]) => entry.bounds)
-  if (id !== 'photos' && docBounds) others.push(docBounds)
+  if (id !== 'photos') for (const kotak of docBoundsList) others.push(kotak)
   for (const item of others) {
     horizontal.push(item.x, item.x + item.width / 2, item.x + item.width)
     vertical.push(item.y, item.y + item.height / 2, item.y + item.height)
@@ -586,8 +590,7 @@ function drawPhoto(image, x, y, width, height, index) {
   ctx.restore()
 }
 
-function drawDocumentation(f, x, y, count, height, repair, accent, docWidth = documentationWidth) {
-  const width = count === 1 ? docWidth : (docWidth - 18) / 2
+function drawDocHeading(x, y, repair, accent) {
   rounded(x, y, 360, 32, 8, '#082137')
   if (repair) {
     ctx.fillStyle = '#ffd066'
@@ -596,21 +599,22 @@ function drawDocumentation(f, x, y, count, height, repair, accent, docWidth = do
   } else {
     label('DOKUMENTASI PEKERJAAN', x + 11, y + 20, 24, accent)
   }
-  for (let index = 0; index < count; index++) {
-    const photoX = x + index * (width + 18)
-    const top = y + 35
-    const caption = f['caption' + (index + 1)]
-    const captionHeight = repair || caption ? 62 : 0
-    if (captionHeight) rounded(photoX, top, width, height, 22, '#082137')
-    drawPhoto(photos[index], photoX, top, width, height - captionHeight, index)
-    if (captionHeight) {
-      if (repair) rounded(photoX + 19, top + height - 46, 44, 29, 7, '#ffd066')
-      if (repair) label(String(index + 1).padStart(2, '0'), photoX + 29, top + height - 25, 17, '#17283c', 800)
-      const inset = repair ? 76 : 24
-      setFont('caption' + (index + 1))
-      block(caption || 'Media pekerjaan ' + (index + 1), photoX + inset, top + height - 24,
-        width - inset - 22, 1, 23, '#ffffff', 600)
-    }
+}
+
+/* Satu blok media (foto/video) yang posisinya berdiri sendiri. */
+function drawMediaBlock(f, index, x, y, width, height, repair) {
+  const top = y + 35
+  const caption = f['caption' + (index + 1)]
+  const captionHeight = repair || caption ? 62 : 0
+  if (captionHeight) rounded(x, top, width, height, 22, '#082137')
+  drawPhoto(photos[index], x, top, width, height - captionHeight, index)
+  if (captionHeight) {
+    if (repair) rounded(x + 19, top + height - 46, 44, 29, 7, '#ffd066')
+    if (repair) label(String(index + 1).padStart(2, '0'), x + 29, top + height - 25, 17, '#17283c', 800)
+    const inset = repair ? 76 : 24
+    setFont('caption' + (index + 1))
+    block(caption || 'Media pekerjaan ' + (index + 1), x + inset, top + height - 24,
+      width - inset - 22, 1, 23, '#ffffff', 600)
   }
   setFont()
 }
@@ -989,24 +993,44 @@ function render() {
 
   const footerTop = height / posterScale - footerHeight - 31
   photoDrag.hidden = !photoCount || hiddenLayers.has('photos')
+  photoDrag2.hidden = photoCount < 2 || hiddenLayers.has('photos')
   docBounds = null
+  docBoundsList = []
   if (!photoDrag.hidden) {
     const ukuranFoto = ukuranBlok('photos')
-    const lebarFoto = Math.round(docWidth * ukuranFoto.w / 100)
+    const lebarTotal = Math.round(docWidth * ukuranFoto.w / 100)
     const tinggiFoto = Math.round(photoHeight * ukuranFoto.h / 100)
     const docHeight = tinggiFoto + 35
-    const maxX = LW - lebarFoto - 48
+    /* Dua media = dua blok terpisah; masing-masing bisa digeser sendiri. */
+    const lebarBlok = photoCount === 2 ? Math.round((lebarTotal - 18) / 2) : lebarTotal
+    const maxX = LW - lebarBlok - 48
     const maxY = footerTop - docHeight - 12
     const defaultY = wide ? geo.bodyBottom + 12
       : blocks.areas.y + 196 + areaHeight + shift + spacing * 3 + adviceSpace
-    const x = Math.max(48, Math.min(maxX, f.docX === '' ? 120 : Number(f.docX)))
-    const y = Math.max(24, Math.min(maxY, f.docY === '' ? defaultY : Number(f.docY)))
-    docBounds = { x, y, width: lebarFoto, height: docHeight, maxX, maxY }
-    drawDocumentation(f, x, y, photoCount, tinggiFoto, repair, accent, lebarFoto)
-    photoDrag.style.left = (offset + x * posterScale) / canvas.width * 100 + '%'
-    photoDrag.style.top = y * posterScale / height * 100 + '%'
-    photoDrag.style.width = lebarFoto * posterScale / canvas.width * 100 + '%'
-    photoDrag.style.height = docHeight * posterScale / height * 100 + '%'
+    const geser = (nilai, bawaan, batasAwal, batasAkhir) =>
+      Math.max(batasAwal, Math.min(batasAkhir, nilai === '' || nilai === undefined ? bawaan : Number(nilai)))
+    for (let index = 0; index < photoCount; index++) {
+      const kunciX = index === 0 ? f.docX : f.docX2
+      const kunciY = index === 0 ? f.docY : f.docY2
+      const bawaanX = 120 + index * (lebarBlok + 18)
+      const x = geser(kunciX, bawaanX, 48, maxX)
+      const y = geser(kunciY, defaultY, 24, maxY)
+      docBoundsList.push({ x, y, width: lebarBlok, height: docHeight, maxX, maxY, index })
+    }
+    docBounds = docBoundsList[0]
+    drawDocHeading(docBounds.x, docBounds.y, repair, accent)
+    for (const kotak of docBoundsList) {
+      drawMediaBlock(f, kotak.index, kotak.x, kotak.y, kotak.width, kotak.height, repair)
+    }
+    const tempatkan = (tombol, kotak) => {
+      if (!kotak) return
+      tombol.style.left = (offset + kotak.x * posterScale) / canvas.width * 100 + '%'
+      tombol.style.top = kotak.y * posterScale / height * 100 + '%'
+      tombol.style.width = kotak.width * posterScale / canvas.width * 100 + '%'
+      tombol.style.height = kotak.height * posterScale / height * 100 + '%'
+    }
+    tempatkan(photoDrag, docBoundsList[0])
+    tempatkan(photoDrag2, docBoundsList[1])
   }
   const ukuranSosial = kotakBlok('socials', IW, footerHeight)
   renderBlock('socials', PAD, footerTop, ukuranSosial.w, ukuranSosial.h, () => {
@@ -1084,7 +1108,10 @@ function update() {
 
 form.addEventListener('submit', event => event.preventDefault())
 form.addEventListener('input', event => {
-  if (event.target === form.elements.photoLayout) form.elements.docX.value = form.elements.docY.value = ''
+  if (event.target === form.elements.photoLayout) {
+    form.elements.docX.value = form.elements.docY.value = ''
+    form.elements.docX2.value = form.elements.docY2.value = ''
+  }
   if (event.target === form.elements.cause) {
     form.elements.note.value = selectedCause(event.target.value)?.text ?? ''
   }
@@ -2079,7 +2106,8 @@ function buatTatanan(name, id = buatId()) {
     photoLayout: form.elements.photoLayout.value,
     positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
     sizes: structuredClone(blockSizes), hidden: [...hiddenLayers], gaya: structuredClone(gayaAset),
-    photo: [form.elements.docX.value, form.elements.docY.value]
+    photo: [form.elements.docX.value, form.elements.docY.value,
+      form.elements.docX2.value, form.elements.docY2.value]
   }
 }
 
@@ -2178,7 +2206,9 @@ async function pakaiTatanan(id) {
   gayaAset = layout.gaya && typeof layout.gaya === 'object' ? structuredClone(layout.gaya) : {}
   simpanGayaAset()
   if (layout.photoLayout !== undefined) form.elements.photoLayout.value = String(layout.photoLayout)
-  ;[form.elements.docX.value, form.elements.docY.value] = Array.isArray(layout.photo) ? layout.photo : ['', '']
+  ;[form.elements.docX.value, form.elements.docY.value,
+    form.elements.docX2.value, form.elements.docY2.value] = Array.isArray(layout.photo) && layout.photo.length === 4
+    ? layout.photo : [...(Array.isArray(layout.photo) ? layout.photo : ['', '']), '', ''].slice(0, 4)
   tatananAktifId = id
   showLayerPanel()
   update()
@@ -2348,47 +2378,64 @@ syncFontButtons()
 
 let documentationDrag = null
 
-function moveDocumentation(x, y) {
-  if (!docBounds) return
-  form.elements.docX.value = String(Math.round(Math.max(48, Math.min(docBounds.maxX, x))))
-  form.elements.docY.value = String(Math.round(Math.max(24, Math.min(docBounds.maxY, y))))
+function kotakMedia(index) {
+  return docBoundsList.find(kotak => kotak.index === index) || null
+}
+
+function moveDocumentation(index, x, y) {
+  const kotak = kotakMedia(index)
+  if (!kotak) return
+  const isiX = index === 0 ? form.elements.docX : form.elements.docX2
+  const isiY = index === 0 ? form.elements.docY : form.elements.docY2
+  isiX.value = String(Math.round(Math.max(48, Math.min(kotak.maxX, x))))
+  isiY.value = String(Math.round(Math.max(24, Math.min(kotak.maxY, y))))
   render()
 }
 
 let fotoBergerak = false
-photoDrag.addEventListener('pointerdown', event => {
-  if (!docBounds || documentationDrag || event.button !== 0) return
-  fotoBergerak = false
-  documentationDrag = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY, ...docBounds }
-  photoDrag.setPointerCapture(event.pointerId)
-})
-photoDrag.addEventListener('pointermove', event => {
-  if (!documentationDrag || documentationDrag.id !== event.pointerId) return
-  if (Math.abs(event.clientX - documentationDrag.clientX) > 3 || Math.abs(event.clientY - documentationDrag.clientY) > 3) fotoBergerak = true
-  const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
-  const position = snapPosterPosition('photos',
-    documentationDrag.x + (event.clientX - documentationDrag.clientX) * scale,
-    documentationDrag.y + (event.clientY - documentationDrag.clientY) * scale, documentationDrag, {
-      minX: 48, maxX: documentationDrag.maxX, minY: 24, maxY: documentationDrag.maxY
-    })
-  moveDocumentation(position.x, position.y)
-})
-photoDrag.addEventListener('lostpointercapture', () => {
-  documentationDrag = null
-  clearSnapGuides()
-  save()
-})
-photoDrag.addEventListener('click', () => { if (!fotoBergerak) pilihAset('photos') })
-photoDrag.addEventListener('keydown', event => {
-  const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]
-  if (!direction || !docBounds) return
-  event.preventDefault()
-  const step = event.shiftKey ? 32 : 8
-  moveDocumentation(docBounds.x + direction[0] * step, docBounds.y + direction[1] * step)
-  save()
-})
+
+/* Setiap blok media punya tombol geser sendiri, jadi posisi 1 dan 2 bebas. */
+function pasangGeserMedia(tombol, index) {
+  tombol.addEventListener('pointerdown', event => {
+    const kotak = kotakMedia(index)
+    if (!kotak || documentationDrag || event.button !== 0) return
+    fotoBergerak = false
+    documentationDrag = { id: event.pointerId, index, clientX: event.clientX, clientY: event.clientY, ...kotak }
+    tombol.setPointerCapture(event.pointerId)
+  })
+  tombol.addEventListener('pointermove', event => {
+    if (!documentationDrag || documentationDrag.id !== event.pointerId || documentationDrag.index !== index) return
+    if (Math.abs(event.clientX - documentationDrag.clientX) > 3 || Math.abs(event.clientY - documentationDrag.clientY) > 3) fotoBergerak = true
+    const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
+    const position = snapPosterPosition('photos',
+      documentationDrag.x + (event.clientX - documentationDrag.clientX) * scale,
+      documentationDrag.y + (event.clientY - documentationDrag.clientY) * scale, documentationDrag, {
+        minX: 48, maxX: documentationDrag.maxX, minY: 24, maxY: documentationDrag.maxY
+      })
+    moveDocumentation(index, position.x, position.y)
+  })
+  tombol.addEventListener('lostpointercapture', () => {
+    documentationDrag = null
+    clearSnapGuides()
+    save()
+  })
+  tombol.addEventListener('click', () => { if (!fotoBergerak) pilihAset('photos') })
+  tombol.addEventListener('keydown', event => {
+    const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]
+    const kotak = kotakMedia(index)
+    if (!direction || !kotak) return
+    event.preventDefault()
+    const step = event.shiftKey ? 32 : 8
+    moveDocumentation(index, kotak.x + direction[0] * step, kotak.y + direction[1] * step)
+    save()
+  })
+}
+
+pasangGeserMedia(photoDrag, 0)
+pasangGeserMedia(photoDrag2, 1)
 document.querySelector('#reset-doc-position').addEventListener('click', () => {
   form.elements.docX.value = form.elements.docY.value = ''
+  form.elements.docX2.value = form.elements.docY2.value = ''
   render()
   save()
 })
@@ -2572,6 +2619,7 @@ if (backsoundPilih) {
 document.querySelector('#reset-poster-positions').addEventListener('click', () => {
   resetPresetPositions(posterSize)
   form.elements.docX.value = form.elements.docY.value = ''
+  form.elements.docX2.value = form.elements.docY2.value = ''
   render()
   save()
 })
