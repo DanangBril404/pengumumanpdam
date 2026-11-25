@@ -53,7 +53,6 @@
 <body>
 <header><nav><div class="brand"><span class="mark" aria-hidden="true">≈</span>Perumda Air Minum Kota Magelang Studio<span class="navtag">Editor pengumuman</span></div><button class="btn" id="reset" type="button">Muat contoh</button></nav></header>
 <main>
-<section class="intro"><p class="eyebrow">Komunikasi layanan publik</p><h1>Buat pengumuman aliran air</h1><p>Isi detail kejadian, pilih template, lalu unduh desain siap dibagikan.</p></section>
 <div class="grid">
 <section class="panel"><div class="head"><h2>Detail pengumuman</h2><p>Informasi ini langsung tampil di desain.</p></div>
 <form id="editor">
@@ -66,7 +65,7 @@
 <div id="background-gallery">
 <div class="template-category"><h3>Perbaikan pipa</h3><div class="gallery" id="pipe-templates" role="group" aria-label="Perbaikan pipa"></div></div>
 <div class="template-category"><h3>Perbaikan listrik</h3><div class="gallery" id="electrical-templates" role="group" aria-label="Perbaikan listrik"></div>
-<div class="asset-row upload-row"><label>Unggah ke galeri listrik<input id="upload-electrical" type="file" accept="image/png,image/jpeg,image/webp" multiple></label></div>
+<div class="asset-row upload-row"><label>Unggah Baner Poster<input id="upload-electrical" type="file" accept="image/png,image/jpeg,image/webp" multiple></label></div>
 <p class="media-status" id="electrical-status" role="status" hidden></p>
 </div>
 </div>
@@ -75,8 +74,6 @@
 <div class="row"><label>Warna latar<input id="base-color" type="color" value="#0b2c4d"></label><button class="btn" id="reset-base-color" type="button">Warna template</button></div>
 <p class="hint">Pilih warna sebelum mengunggah latar. Bagian gambar yang transparan mengikuti warna ini.</p>
 </fieldset>
-<div class="asset-row"><label>Latar buatan sendiri<input id="custom-background" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="add-background" type="button">Tambah</button></div>
-<div class="asset-row" id="saved-background-row" hidden><label>Latar tersimpan<select id="saved-backgrounds"><option value="">Pilih latar sendiri</option></select></label><button class="btn" id="delete-background" type="button" disabled>Hapus</button></div>
 <label>Foto pekerjaan<select id="photo-layout" name="photoLayout"><option value="0">Tanpa foto</option><option value="1">Satu foto lebar</option><option value="2">Dua foto berdampingan</option></select></label>
 <div class="photo-fields">
 <div class="asset-row" id="photo-row-1" hidden><label>Foto pekerjaan 1<input id="photo-1" type="file" accept="image/png,image/jpeg,image/webp"></label><button class="btn" id="remove-photo-1" type="button" hidden>Hapus</button><label class="photo-caption font-field" style="grid-column:1/-1">Keterangan foto 1 (opsional)<button class="font-btn" type="button" data-font-for="caption1" title="Ganti font" aria-label="Ganti font keterangan foto 1">Aa</button><input name="caption1" maxlength="65" placeholder="Misalnya, penggantian sambungan pipa"></label></div>
@@ -87,17 +84,18 @@
 <p class="media-status" id="media-status" role="status"></p>
 </fieldset>
 <fieldset class="title-tools"><legend>Jenis pengumuman</legend>
-<label>Jenis<select name="type"><option>Gangguan Aliran Air</option><option>Pemeliharaan Terjadwal</option><option>Aliran Air Kembali Normal</option></select></label>
-<label class="font-field">Judul sendiri (opsional)<button class="font-btn" type="button" data-font-for="title" title="Ganti font" aria-label="Ganti font judul">Aa</button><textarea name="customTitle" rows="2" maxlength="90" placeholder="Enter untuk membuat baris baru"></textarea></label>
+<label>Jenis<select name="type"><option>Gangguan Aliran Air</option><option>Pemeliharaan Terjadwal</option><option>Aliran Air Kembali Normal</option><option>Judul Sendiri</option></select></label>
+<label class="font-field" id="custom-title-row" hidden>Judul pengumuman<button class="font-btn" type="button" data-font-for="title" title="Ganti font" aria-label="Ganti font judul">Aa</button><textarea name="customTitle" rows="2" maxlength="90" placeholder="Enter untuk membuat baris baru"></textarea></label>
 <label>Ukuran judul <output id="title-size" for="title-scale">100%</output><input id="title-scale" name="titleScale" type="range" min="65" max="125" step="5" value="100"></label>
-<label class="font-field">Teks tambahan (opsional)<button class="font-btn" type="button" data-font-for="extra" title="Ganti font" aria-label="Ganti font teks tambahan">Aa</button><textarea name="titleExtra" rows="2" maxlength="125" placeholder="Enter untuk membuat baris baru"></textarea></label>
+
 </fieldset>
 <div class="preset-section" id="cause-presets">
 <label>Penyebab gangguan<select name="cause"></select></label>
+<label id="cause-title-row" hidden>Judul penyebab<input name="causeTitle" maxlength="85" placeholder="Tulis judul penyebab"></label>
+<label class="font-field" id="note-row" hidden>Rincian penyebab<button class="font-btn" type="button" data-font-for="note" title="Ganti font" aria-label="Ganti font rincian penyebab">Aa</button><textarea name="note" maxlength="400" rows="3"></textarea></label>
 <p class="hint">Daftar penyebab dan rinciannya diatur lewat halaman admin.</p>
 <p class="media-status" role="status" hidden></p>
 </div>
-<label>Nama instansi<input name="agency" maxlength="48" readonly></label>
 <div class="locations">
 <textarea name="area" maxlength="3000" hidden></textarea>
 <div class="preset-section">
@@ -111,7 +109,6 @@
 <fieldset class="schedule-fields"><legend>Perkiraan selesai</legend>
 <label>Jenis perkiraan<select name="finishMode"><option value="scheduled">Tanggal dan jam</option><option value="until">Sampai selesai</option></select></label>
 <div class="row" id="end-fields"><label>Tanggal selesai<input name="endDate" type="date"></label><label>Jam selesai (WIB)<input name="endTime" type="time"></label></div></fieldset>
-<label class="font-field">Rincian penyebab<button class="font-btn" type="button" data-font-for="note" title="Ganti font" aria-label="Ganti font rincian penyebab">Aa</button><textarea name="note" maxlength="400" rows="3"></textarea></label>
 <fieldset class="title-tools"><legend>Imbauan pelanggan</legend>
 <label class="font-field">Teks imbauan<button class="font-btn" type="button" data-font-for="advice" title="Ganti font" aria-label="Ganti font imbauan">Aa</button><textarea name="advice" maxlength="250" rows="3"></textarea></label>
 <label>Posisi vertikal<select name="advicePosition"><option value="before">Di atas wilayah</option><option value="after">Di bawah wilayah</option><option value="photos">Di bawah foto</option></select></label>
@@ -130,4 +127,4 @@
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
 <div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
-<script src="backgrounds.js?v=20261126a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261126c"></script></body></html>
+<script src="backgrounds.js?v=20261126a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261126e"></script></body></html>

@@ -65,9 +65,8 @@ const example = {
   type: 'Gangguan Aliran Air',
   customTitle: '',
   titleScale: '100',
-  titleExtra: '',
+  causeTitle: '',
   cause: '',
-  agency,
   area: sampleAreas.join('\n'),
   startDate: '',
   startTime: '',
@@ -340,7 +339,6 @@ function populate(values) {
   for (const [key, value] of Object.entries(example)) {
     form.elements[key].value = typeof restored[key] === 'string' ? restored[key] : value
   }
-  form.elements.agency.value = agency
   populateCauseOptions(form.elements.cause.value)
 }
 
@@ -548,11 +546,11 @@ function measureLayout(f, LW, repair) {
   const colW = Math.round((IW - gap) / 2)
   const textW = wide ? colW : IW
   const cause = selectedCause(f.cause)
-  const title = f.customTitle || f.type || example.type
+  const title = f.customTitle || (f.type === 'Judul Sendiri' ? 'Gangguan Aliran Air' : f.type) || example.type
   const titleSize = Math.round((repair ? 64 : 61) * Number(f.titleScale) / 100)
   const titleWidth = repair ? Math.min(wide ? textW - 20 : 620, IW) : textW - 2
   const heading = repair && !f.customTitle && f.type === example.type && cause
-    ? title + '\n' + cause.title : title
+    ? title + '\n' + (f.causeTitle || cause.title) : title
   setFont('title')
   typeface(titleSize, 800)
   const titleLines = wrap(heading, titleWidth)
@@ -619,10 +617,10 @@ function measureLayout(f, LW, repair) {
     adviceHeight, adviceSpace, footerHeight, blocks, naturalHeight, bodyBottom }
 }
 
-function drawCauseBox(cause, note, x, y, w, dark) {
+function drawCauseBox(cause, note, x, y, w, dark, causeTitle = '') {
   rounded(x, y, w, 172, 23, '#fff0bb')
   setFont('note')
-  block(cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
+  block(causeTitle || cause?.title || 'Rincian Pengumuman', x + 30, y + 46, w - 62, 1, 32, dark, 800)
   block(note.replace(/\s+/g, ' ') || 'Belum diinformasikan', x + 30, y + 85, w - 62, 3, 25, dark, 600)
 }
 
@@ -775,7 +773,7 @@ function render() {
 
   if (wide) {
     const c = blocks.cause, s = blocks.schedule, a = blocks.advice, ar = blocks.areas
-    renderBlock('cause', c.x, c.y, c.w, c.h, () => drawCauseBox(cause, f.note, c.x, c.y, c.w, dark))
+    renderBlock('cause', c.x, c.y, c.w, c.h, () => drawCauseBox(cause, f.note, c.x, c.y, c.w, dark, f.causeTitle))
     renderBlock('schedule', s.x, s.y, s.w, s.h, () => drawScheduleBox(f, s.x, s.y, s.w, dark, bright))
     if (adviceSpace) {
       renderBlock('advice', a.x, a.y, a.w, a.h,
@@ -786,7 +784,7 @@ function render() {
   } else {
     ctx.save()
     ctx.translate(0, shift + spacing)
-    renderBlock('cause', PAD, 325, IW, 172, () => drawCauseBox(cause, f.note, PAD, 325, IW, dark))
+    renderBlock('cause', PAD, 325, IW, 172, () => drawCauseBox(cause, f.note, PAD, 325, IW, dark, f.causeTitle))
     ctx.translate(0, spacing)
     renderBlock('schedule', PAD, 516, IW, 162, () => drawScheduleBox(f, PAD, 516, IW, dark, bright))
     ctx.translate(0, 52 + spacing)
@@ -863,6 +861,18 @@ function save() {
   try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, blockPositionsByPreset: { ...blockPositionsByPreset, [posterSize]: blockPositions }, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize, posterWidth, posterHeight, posterHeightAuto })) } catch {}
 }
 
+/* Kolom yang hanya muncul sesuai pilihan: judul sendiri, judul & rincian penyebab. */
+function syncConditionalFields() {
+  const judulSendiri = form.elements.type.value === 'Judul Sendiri'
+  const penyebabLain = form.elements.cause.value === 'penyebab-other'
+  const barisJudul = document.querySelector('#custom-title-row')
+  const barisJudulPenyebab = document.querySelector('#cause-title-row')
+  const barisRincian = document.querySelector('#note-row')
+  if (barisJudul) barisJudul.hidden = !judulSendiri
+  if (barisJudulPenyebab) barisJudulPenyebab.hidden = !penyebabLain
+  if (barisRincian) barisRincian.hidden = !penyebabLain
+}
+
 function update() {
   const { startDate, startTime, endDate, endTime, finishMode } = fields()
   const until = finishMode === 'until'
@@ -877,6 +887,7 @@ function update() {
   for (const button of gallery.querySelectorAll('button')) {
     button.setAttribute('aria-pressed', String(button.dataset.template === template))
   }
+  syncConditionalFields()
   const count = Number(form.elements.photoLayout.value)
   document.querySelector('#doc-position').hidden = !count
   for (const [index, row] of photoRows.entries()) row.hidden = index >= count
@@ -1145,21 +1156,12 @@ motion.addEventListener('change', render)
 
 const gallery = document.querySelector('#background-gallery')
 const mediaStatus = document.querySelector('#media-status')
-const customInput = document.querySelector('#custom-background')
-const customSelect = document.querySelector('#saved-backgrounds')
-const customRow = document.querySelector('#saved-background-row')
-const deleteBackground = document.querySelector('#delete-background')
 const backgroundsKey = 'kabar-air-custom-backgrounds'
 let customTemplates = readStorage(backgroundsKey, [])
 let backgroundRevision = 0
 
-function showCustomTemplates() {
-  customSelect.replaceChildren(new Option('Pilih latar sendiri', ''))
-  for (const entry of customTemplates) customSelect.add(new Option(entry.name, entry.id))
-  customSelect.value = customTemplates.some(entry => entry.id === template) ? template : ''
-  customRow.hidden = customTemplates.length === 0
-  deleteBackground.disabled = !customSelect.value
-}
+/* Menu “Latar buatan sendiri” sudah dihapus dari frontend; latar diatur lewat galeri/admin. */
+function showCustomTemplates() {}
 
 function selectBuiltin(id) {
   backgroundRevision += 1
@@ -1461,7 +1463,18 @@ function addLayerRow(id, name, layer) {
   layerList.append(row)
 }
 
+/* Hanya satu hiasan di poster: menambah hiasan baru menggantikan yang lama. */
 function addDecorationLayer(layer) {
+  for (const lama of decorationLayers) {
+    delete blockPositions[lama.id]
+    const entry = posterBlocks.get(lama.id)
+    if (entry) {
+      entry.handle.remove()
+      posterBlocks.delete(lama.id)
+    }
+    decorationArtwork.delete(lama.type)
+  }
+  decorationLayers = []
   decorationLayers.push(layer)
   selectedDecorationId = layer.id
   registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
@@ -1499,22 +1512,7 @@ function showOrnamentGallery() {
       addDecorationLayer({ ...item, id: 'ornament-' + buatId(), width: decorationLayers.length ? 70 : 100 })
       showDecorationStatus(item.name + ' ditambahkan ke poster.')
     })
-    const remove = document.createElement('button')
-    remove.className = 'ornament-delete layer-action icon-button'
-    remove.type = 'button'
-    remove.textContent = '×'
-    remove.title = 'Hapus template ' + item.name
-    remove.setAttribute('aria-label', remove.title)
-    remove.addEventListener('click', () => {
-      const next = ornamentTemplates.filter(entry => entry.id !== item.id)
-      if (!storeLocal(ornamentGalleryKey, next)) return
-      ornamentTemplates = next
-      pruneOrnamentSource(item.sourceKey)
-      showOrnamentGallery()
-      showDecorationStatus('Template dihapus dari galeri.')
-      decorationUpload.focus()
-    })
-    tile.append(add, remove)
+    tile.append(add)
     ornamentGallery.append(tile)
   }
 }
@@ -1723,58 +1721,6 @@ window.addEventListener('resize', () => {
   if (!fontMenu.hidden) tutupFontMenu()
 })
 syncFontButtons()
-
-const addBackground = document.querySelector('#add-background')
-addBackground.addEventListener('click', async () => {
-  const file = customInput.files[0]
-  if (!file) {
-    mediaStatus.textContent = 'Pilih berkas gambar untuk latar poster.'
-    customInput.focus()
-    return
-  }
-  addBackground.disabled = true
-  const revision = backgroundRevision
-  try {
-    const image = await loadImageFile(file)
-    const scaled = document.createElement('canvas')
-    const ratio = Math.min(1, 1400 / Math.max(image.width, image.height))
-    scaled.width = Math.max(1, Math.round(image.width * ratio))
-    scaled.height = Math.max(1, Math.round(image.height * ratio))
-    const scaledContext = scaled.getContext('2d')
-    scaledContext.drawImage(image, 0, 0, scaled.width, scaled.height)
-    const entry = {
-      id: 'custom-' + buatId(),
-      name: file.name.replace(/\.[^.]+$/, '').slice(0, 60) || 'Latar sendiri',
-      source: scaled.toDataURL('image/webp', .88)
-    }
-    const next = [...customTemplates, entry]
-    if (!storeLocal(backgroundsKey, next)) {
-      mediaStatus.textContent = 'Latar belum disimpan. Hapus latar lama atau gunakan gambar lebih kecil.'
-      return
-    }
-    customTemplates = next
-    showCustomTemplates()
-    if (revision === backgroundRevision) await selectCustom(entry.id)
-    customInput.value = ''
-    mediaStatus.textContent = 'Latar ditambahkan ke daftar di browser ini.'
-  } catch (error) {
-    mediaStatus.textContent = error.message
-  } finally {
-    addBackground.disabled = false
-  }
-})
-customSelect.addEventListener('change', () => {
-  if (customSelect.value) selectCustom(customSelect.value)
-  else selectBuiltin(defaultTemplate)
-})
-deleteBackground.addEventListener('click', () => {
-  const id = customSelect.value
-  const next = customTemplates.filter(entry => entry.id !== id)
-  if (!storeLocal(backgroundsKey, next)) return
-  customTemplates = next
-  selectBuiltin(defaultTemplate)
-  mediaStatus.textContent = 'Latar dihapus dari daftar.'
-})
 
 let documentationDrag = null
 
@@ -2035,8 +1981,10 @@ function applyServerData(data) {
   if (Array.isArray(data.types) && data.types.length) {
     const select = form.elements.type
     const current = select.value
-    select.replaceChildren(...data.types.map(item => new Option(item.name, item.name)))
-    select.value = data.types.some(item => item.name === current) ? current : data.types[0].name
+    const daftar = data.types.map(item => item.name)
+    select.replaceChildren(...data.types.map(item => new Option(item.name, item.name)),
+      new Option('Judul Sendiri', 'Judul Sendiri'))
+    select.value = daftar.includes(current) || current === 'Judul Sendiri' ? current : daftar[0]
     changed = true
   }
   if (changed) {

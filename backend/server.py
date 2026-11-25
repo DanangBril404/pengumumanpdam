@@ -72,6 +72,13 @@ def init_db():
             iterations INTEGER NOT NULL
         );
         CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            waktu TEXT NOT NULL,
+            aksi TEXT NOT NULL,
+            item TEXT,
+            detail TEXT
+        );
     ''')
     count = conn.execute('SELECT COUNT(*) AS n FROM items').fetchone()['n']
     if count == 0 and os.path.exists(SEED_PATH):
@@ -146,6 +153,17 @@ def token_valid(token):
         return int(stamp) + SESSION_AGE > time.time()
     except ValueError:
         return False
+
+
+def log_event(aksi, item='', detail=''):
+    try:
+        conn = connect()
+        conn.execute('INSERT INTO events (waktu, aksi, item, detail) VALUES (?,?,?,?)',
+                     (time.strftime('%Y-%m-%d %H:%M:%S'), aksi, item, detail[:300]))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
 
 def rows_for(kind, only_enabled=True):
@@ -311,8 +329,10 @@ class Handler(BaseHTTPRequestHandler):
             if not has_admin():
                 return self.kirim(409, {'ok': False, 'pesan': 'Buat sandi admin lebih dulu.'})
             if not check_password(str(data.get('password') or '')):
+                log_event('login-gagal', '', self.headers.get('X-Real-IP') or self.address_string())
                 time.sleep(1.2)
                 return self.kirim(401, {'ok': False, 'pesan': 'Sandi salah.'})
+            log_event('login', '', self.headers.get('X-Real-IP') or self.address_string())
             return self.login_cookie()
 
         if jalur == '/api/logout':
@@ -355,9 +375,11 @@ class Handler(BaseHTTPRequestHandler):
         if not self.butuh_auth():
             return
         conn = connect()
+        baris = conn.execute('SELECT kind, name FROM items WHERE id=?', (cocok.group(1),)).fetchone()
         conn.execute('DELETE FROM items WHERE id=?', (cocok.group(1),))
         conn.commit()
         conn.close()
+        log_event('hapus', cocok.group(1), (baris['kind'] + ' / ' + baris['name']) if baris else '')
         self.kirim(200, {'ok': True})
 
     # ---------- aksi ----------
@@ -409,6 +431,7 @@ class Handler(BaseHTTPRequestHandler):
                       time.strftime('%Y-%m-%d %H:%M:%S')))
         conn.commit()
         conn.close()
+        log_event('tambah', item_id, kind + ' / ' + name)
         self.kirim(200, {'ok': True, 'id': item_id})
 
     def ubah_item(self, item_id, data):
@@ -425,6 +448,7 @@ class Handler(BaseHTTPRequestHandler):
                       time.strftime('%Y-%m-%d %H:%M:%S'), item_id))
         conn.commit()
         conn.close()
+        log_event('ubah', item_id, name)
         self.kirim(200, {'ok': True})
 
     def geser_item(self, item_id, data):
@@ -443,6 +467,7 @@ class Handler(BaseHTTPRequestHandler):
             conn.execute('UPDATE items SET sort=? WHERE id=?', (row['sort'], tetangga['id']))
             conn.commit()
         conn.close()
+        log_event('geser', item_id, str(arah))
         self.kirim(200, {'ok': True})
 
 
