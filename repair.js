@@ -47,7 +47,7 @@ function paintManualImage(context, image, f) {
   context.drawImage(manualLayer, x, 0)
 }
 
-function paintRepairHero(context, backdrop, image, logo, f, shift = 0) {
+function paintRepairHero(context, backdrop, image, logo, f, shift = 0, pan = null) {
   if (backdrop.manual) {
     paintManualImage(context, image, f)
     return
@@ -71,7 +71,7 @@ function paintRepairHero(context, backdrop, image, logo, f, shift = 0) {
   bottomFade.addColorStop(1, dark)
 
   if (image) {
-    drawFeathered(context, image, 245, 0, 835, height, { left: 620, bottom: 210, top: 46 })
+    drawFeathered(context, image, 245, 0, 835, height, { left: 620, bottom: 210, top: 46 }, pan)
   } else {
     if (backdrop.electrical) paintElectricSymbol(context)
     else paintRepairPipe(context)

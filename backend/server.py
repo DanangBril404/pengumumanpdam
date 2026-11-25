@@ -176,6 +176,19 @@ def rows_for(kind, only_enabled=True):
     return rows
 
 
+def media_url(alamat):
+    """Tambahkan versi berkas pada URL media supaya cache lama (mis. 404 yang
+    sempat tersimpan di browser/CDN) tidak lagi dipakai."""
+    if not alamat or not alamat.startswith('/api/media/'):
+        return alamat
+    nama = os.path.basename(urllib_unquote(alamat))
+    try:
+        versi = int(os.path.getmtime(os.path.join(UPLOAD_DIR, nama)))
+    except OSError:
+        versi = 0
+    return alamat + '?v=' + str(versi)
+
+
 def payload():
     def pack(rows):
         hasil = []
@@ -193,7 +206,7 @@ def payload():
         return {
             'id': item['id'], 'name': item['name'],
             'category': body.get('category', 'animasi'),
-            'image': body.get('image', ''),
+            'image': media_url(body.get('image', '')),
             'colors': body.get('colors') or ['#071c35', '#125071', '#9eecff'],
             'animation': body.get('animation', '')
         }
@@ -202,7 +215,7 @@ def payload():
         'templates': [template(item) for item in pack(rows_for('template'))],
         'decorations': [{'id': item['id'], 'name': item['name'], 'image': item['body'].get('image', '')}
                         for item in pack(rows_for('hiasan'))],
-        'pipeArt': [{'id': item['id'], 'name': item['name'], 'image': item['body'].get('image', '')}
+        'pipeArt': [{'id': item['id'], 'name': item['name'], 'image': media_url(item['body'].get('image', ''))}
                     for item in pack(rows_for('pipa'))],
         'types': [{'id': item['id'], 'name': item['name']} for item in pack(rows_for('jenis'))],
         'causes': pack(rows_for('penyebab')),

@@ -44,7 +44,8 @@ function coverImage(context, image, x, y, width, height) {
    yang ditempel: alpha diturunkan bertahap pada sisi yang diminta. */
 const featherLayer = document.createElement('canvas')
 
-function drawFeathered(context, image, x, y, width, height, edges = {}) {
+function drawFeathered(context, image, x, y, width, height, edges = {}, pan = null) {
+  /* pan = { x, y, z }: geser isi foto (px logis) dan zoom (1 = pas menutup bingkai). */
   const w = Math.max(1, Math.round(width))
   const h = Math.max(1, Math.round(height))
   if (featherLayer.width !== w) featherLayer.width = w
@@ -52,10 +53,18 @@ function drawFeathered(context, image, x, y, width, height, edges = {}) {
   const layer = featherLayer.getContext('2d')
   layer.globalCompositeOperation = 'source-over'
   layer.clearRect(0, 0, w, h)
-  const frame = coverImageFrame(image, 0, 0, w, h)
-  layer.drawImage(image, (0 - frame.x) * image.width / frame.width,
-    (0 - frame.y) * image.height / frame.height, w * image.width / frame.width,
-    h * image.height / frame.height, 0, 0, w, h)
+  /* Isi foto digambar di dalam bingkai (bukan memindah bingkainya): skala dasar
+     menutup bingkai, dikali zoom, lalu digeser; dibatasi agar tanpa ruang kosong. */
+  const zoom = pan && Number(pan.z) > 0 ? Number(pan.z) : 1
+  const skala = Math.max(w / image.width, h / image.height) * zoom
+  const lebarGambar = image.width * skala
+  const tinggiGambar = image.height * skala
+  const sisaX = Math.max(0, (lebarGambar - w) / 2)
+  const sisaY = Math.max(0, (tinggiGambar - h) / 2)
+  const geserX = pan ? Math.max(-sisaX, Math.min(sisaX, Number(pan.x) || 0)) : 0
+  const geserY = pan ? Math.max(-sisaY, Math.min(sisaY, Number(pan.y) || 0)) : 0
+  layer.drawImage(image, 0, 0, image.width, image.height,
+    (w - lebarGambar) / 2 + geserX, (h - tinggiGambar) / 2 + geserY, lebarGambar, tinggiGambar)
   layer.globalCompositeOperation = 'destination-in'
   layer.fillStyle = '#ffffff'
   layer.fillRect(0, 0, w, h)

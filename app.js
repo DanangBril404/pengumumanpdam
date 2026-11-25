@@ -738,9 +738,10 @@ function render() {
     ctx.save()
     if (LW > 1080) ctx.translate(LW - 1080, 0)
     paintRepairHero(ctx, backdrop, backdrop.manual ? manualImage : templateArtwork.get(template),
-      hiddenLayers.has('logo') ? null : logo, f, LW - 1080)
+      hiddenLayers.has('logo') ? null : logo, f, LW - 1080, panBannerAktif())
     ctx.restore()
   }
+  perbaruiDragBanner(backdrop, offset, posterScale, width, height)
   setFont()
 
   if (logo) renderBlock('logo', 55, 33, 148, 148, () => paintLogo(ctx, logo, 121, 99, 148))
@@ -1055,6 +1056,13 @@ function setLogo(image) {
 function decodeImage(source) {
   return new Promise((resolve, reject) => {
     const image = new Image()
+    /* Gambar dari API di origin lain dimuat sebagai CORS supaya kanvas tidak
+       “terkontaminasi” (toDataURL/unduh PNG tetap bisa dipakai). */
+    try {
+      if (/^https?:/i.test(source) && new URL(source, location.href).origin !== location.origin) {
+        image.crossOrigin = 'anonymous'
+      }
+    } catch { /* alamat relatif / data URL: tidak perlu CORS */ }
     let selesai = false
     const beres = () => {
       if (selesai) return
@@ -1785,6 +1793,133 @@ document.querySelector('#reset-doc-position').addEventListener('click', () => {
   save()
 })
 
+/* ---------- Geser foto banner (galeri Banner Foto) ---------- */
+const bannerPanKey = 'kabar-air-banner-pan'
+let bannerPan = readStorage(bannerPanKey, {})
+const bannerDrag = document.querySelector('#banner-drag')
+const BANNER_FRAME = { x: 245, y: 0, width: 835, height: 530 }
+let bannerBounds = null
+let bannerDragState = null
+
+const bannerZoom = document.querySelector('#banner-zoom')
+const bannerZoomRow = document.querySelector('#banner-zoom-row')
+const bannerZoomValue = document.querySelector('#banner-zoom-value')
+
+function panBannerAktif() {
+  const nilai = bannerPan[template]
+  if (!nilai) return null
+  const x = Number(nilai.x) || 0
+  const y = Number(nilai.y) || 0
+  const z = Number(nilai.z) > 1 ? Number(nilai.z) : 1
+  return x || y || z > 1 ? { x, y, z } : null
+}
+
+function zoomBannerAktif() {
+  const nilai = bannerPan[template]
+  return nilai && Number(nilai.z) > 1 ? Number(nilai.z) : 1
+}
+
+function batasPanBanner() {
+  const image = templateArtwork.get(template)
+  if (!image) return null
+  const skala = Math.max(BANNER_FRAME.width / image.width, BANNER_FRAME.height / image.height) * zoomBannerAktif()
+  const maxX = Math.max(0, (image.width * skala - BANNER_FRAME.width) / 2)
+  const maxY = Math.max(0, (image.height * skala - BANNER_FRAME.height) / 2)
+  if (maxX < 1 && maxY < 1) return null
+  return { maxX, maxY }
+}
+
+function perbaruiDragBanner(backdrop, offset, skala, lebar, tinggi) {
+  const foto = !!(backdrop && backdrop.kind === 'foto')
+  bannerBounds = foto ? batasPanBanner() : null
+  bannerDrag.hidden = !bannerBounds
+  bannerZoomRow.hidden = !foto
+  if (foto) {
+    const z = zoomBannerAktif()
+    bannerZoom.value = String(Math.round(z * 100))
+    bannerZoomValue.textContent = Math.round(z * 100) + '%'
+  }
+  if (!bannerBounds) return
+  bannerDrag.style.left = (offset + (layoutWidth - 1080 + BANNER_FRAME.x) * skala) / lebar * 100 + '%'
+  bannerDrag.style.top = BANNER_FRAME.y * skala / tinggi * 100 + '%'
+  bannerDrag.style.width = BANNER_FRAME.width * skala / lebar * 100 + '%'
+  bannerDrag.style.height = BANNER_FRAME.height * skala / tinggi * 100 + '%'
+}
+
+function geserBanner(x, y) {
+  if (!bannerBounds) return
+  const nilai = {
+    x: Math.round(Math.max(-bannerBounds.maxX, Math.min(bannerBounds.maxX, x))),
+    y: Math.round(Math.max(-bannerBounds.maxY, Math.min(bannerBounds.maxY, y)))
+  }
+  const z = zoomBannerAktif()
+  if (z > 1) nilai.z = z
+  bannerPan = { ...bannerPan, [template]: nilai }
+  storeLocal(bannerPanKey, bannerPan)
+  render()
+}
+
+bannerDrag.addEventListener('pointerdown', event => {
+  if (!bannerBounds || event.button !== 0) return
+  bannerDragState = {
+    id: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+    awal: panBannerAktif() || { x: 0, y: 0 }
+  }
+  bannerDrag.setPointerCapture(event.pointerId)
+})
+bannerDrag.addEventListener('pointermove', event => {
+  if (!bannerDragState || bannerDragState.id !== event.pointerId) return
+  const kotak = canvas.getBoundingClientRect()
+  const perPiksel = canvas.width / Math.max(1, kotak.width) / posterScale
+  geserBanner(bannerDragState.awal.x + (event.clientX - bannerDragState.clientX) * perPiksel,
+    bannerDragState.awal.y + (event.clientY - bannerDragState.clientY) * perPiksel)
+})
+bannerDrag.addEventListener('lostpointercapture', () => { bannerDragState = null })
+bannerDrag.addEventListener('keydown', event => {
+  const arah = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]
+  if (!arah || !bannerBounds) return
+  event.preventDefault()
+  const kini = panBannerAktif() || { x: 0, y: 0 }
+  const langkah = event.shiftKey ? 40 : 10
+  geserBanner(kini.x + arah[0] * langkah, kini.y + arah[1] * langkah)
+})
+function aturZoomBanner(persen) {
+  const z = Math.max(1, Math.min(2.6, persen / 100))
+  const kini = panBannerAktif() || { x: 0, y: 0 }
+  const image = templateArtwork.get(template)
+  let x = kini.x
+  let y = kini.y
+  if (image) {
+    const skala = Math.max(BANNER_FRAME.width / image.width, BANNER_FRAME.height / image.height) * z
+    const maxX = Math.max(0, (image.width * skala - BANNER_FRAME.width) / 2)
+    const maxY = Math.max(0, (image.height * skala - BANNER_FRAME.height) / 2)
+    x = Math.max(-maxX, Math.min(maxX, x))
+    y = Math.max(-maxY, Math.min(maxY, y))
+  }
+  const salinan = { ...bannerPan }
+  if (z <= 1) salinan[template] = { x, y }
+  else salinan[template] = { x, y, z }
+  bannerPan = salinan
+  storeLocal(bannerPanKey, bannerPan)
+  render()
+}
+
+bannerZoom.addEventListener('input', () => aturZoomBanner(Number(bannerZoom.value)))
+bannerDrag.addEventListener('wheel', event => {
+  if (!bannerBounds) return
+  event.preventDefault()
+  aturZoomBanner(zoomBannerAktif() * 100 + (event.deltaY < 0 ? 10 : -10))
+}, { passive: false })
+
+document.querySelector('#reset-banner-photo').addEventListener('click', () => {
+  const salinan = { ...bannerPan }
+  delete salinan[template]
+  bannerPan = salinan
+  storeLocal(bannerPanKey, bannerPan)
+  render()
+  save()
+})
+
 const photoRows = [1, 2].map(number => document.querySelector('#photo-row-' + number))
 const photoInputs = [1, 2].map(number => document.querySelector('#photo-' + number))
 const removePhotos = [1, 2].map(number => document.querySelector('#remove-photo-' + number))
@@ -1932,6 +2067,14 @@ for (const layer of decorationLayers) if (!hiddenLayers.has(layer.id)) loadDecor
    ------------------------------------------------------------------ */
 const studioApi = new URLSearchParams(location.search).get('api') || ''
 
+/* Alamat gambar dari backend dipakai apa adanya bila satu domain; kalau aplikasi
+   dibuka dari origin lain (mis. ?api=https://...), alamat /api/... diberi awalan API. */
+function alamatMedia(url) {
+  if (!url || typeof url !== 'string') return url
+  if (!studioApi || !url.startsWith('/')) return url
+  return studioApi.replace(/\/$/, '') + url
+}
+
 function applyServerData(data) {
   let changed = false
   if (Array.isArray(data.pipeArt) && data.pipeArt.length) {
@@ -1940,7 +2083,7 @@ function applyServerData(data) {
       backdrops[item.id] = {
         name: item.name,
         colors: FOTO_COLORS,
-        art: item.image || null,
+        art: alamatMedia(item.image) || null,
         kind: 'foto',
         badges: false,
         server: true
@@ -1956,7 +2099,7 @@ function applyServerData(data) {
       backdrops[item.id] = {
         name: item.name,
         colors: Array.isArray(item.colors) && item.colors.length === 3 ? item.colors : ['#071c35', '#125071', '#9eecff'],
-        art: item.image || null,
+        art: alamatMedia(item.image) || null,
         kind: 'animasi',
         animation: item.animation === 'water' ? 'water' : undefined,
         badges: false,
@@ -1976,7 +2119,7 @@ function applyServerData(data) {
     const lokal = ornamentTemplates.filter(item => item.type === 'custom' || item.sourceKey)
     for (const item of data.decorations) {
       decorationNames[item.id] = item.name
-      decorationFiles[item.id] = item.image
+      decorationFiles[item.id] = alamatMedia(item.image)
     }
     ornamentTemplates = [
       ...data.decorations.map(item => ({ id: item.id, type: item.id, name: item.name })),
