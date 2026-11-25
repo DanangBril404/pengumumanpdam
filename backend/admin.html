@@ -187,6 +187,39 @@ function gambarTabs() {
   }
 }
 
+/* Perkecil & kompres gambar di browser supaya foto besar (mis. 4000 px) tetap
+   ringan dan pasti tampil di poster. Sisi terpanjang maksimal 1800 px. */
+async function siapkanGambar(file, maks = 1800) {
+  if (!/^image\//.test(file.type)) throw new Error('Berkas harus berupa gambar.')
+  let bitmap
+  try {
+    bitmap = await createImageBitmap(file)
+  } catch {
+    throw new Error('Gambar tidak dapat dibuka. Coba JPG, PNG, atau WebP lain.')
+  }
+  const skala = Math.min(1, maks / Math.max(bitmap.width, bitmap.height))
+  const lebar = Math.max(1, Math.round(bitmap.width * skala))
+  const tinggi = Math.max(1, Math.round(bitmap.height * skala))
+  const kanvas = document.createElement('canvas')
+  kanvas.width = lebar
+  kanvas.height = tinggi
+  const konteks = kanvas.getContext('2d')
+  konteks.fillStyle = '#0b2c4d'
+  konteks.fillRect(0, 0, lebar, tinggi)
+  konteks.drawImage(bitmap, 0, 0, lebar, tinggi)
+  if (bitmap.close) bitmap.close()
+  let blob = await new Promise(r => kanvas.toBlob(r, 'image/webp', .9))
+  if (!blob) blob = await new Promise(r => kanvas.toBlob(r, 'image/jpeg', .9))
+  const sumber = blob || file
+  const dataUrl = await new Promise((res, rej) => {
+    const pembaca = new FileReader()
+    pembaca.onerror = () => rej(new Error('Gagal membaca berkas gambar.'))
+    pembaca.onload = () => res(pembaca.result)
+    pembaca.readAsDataURL(sumber)
+  })
+  return { dataUrl, lebar, tinggi }
+}
+
 function fieldGambar(nilai, onChange, { alamat = true } = {}) {
   const bungkus = el('div', { className: 'grid' })
   const pratinjau = el('img', { alt: '', style: 'width:150px;height:90px;object-fit:cover;border-radius:8px;background:#0a1726' })
@@ -202,18 +235,19 @@ function fieldGambar(nilai, onChange, { alamat = true } = {}) {
   berkas.addEventListener('change', async () => {
     const file = berkas.files[0]
     if (!file) return
-    pesan('Mengunggah gambar…')
-    const reader = new FileReader()
-    reader.onload = async () => {
-      try {
-        const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: reader.result }) })
-        terapkan(hasil.url)
-        pesan('Gambar terunggah.', 'ok')
-      } catch (error) { pesan(error.message, 'err') }
-    }
-    reader.readAsDataURL(file)
+    try {
+      pesan('Menyiapkan gambar…')
+      const siap = await siapkanGambar(file)
+      pesan('Mengunggah gambar…')
+      const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: siap.dataUrl }) })
+      terapkan(hasil.url)
+      pesan('Gambar terunggah (' + siap.lebar + ' × ' + siap.tinggi + ' px).', 'ok')
+    } catch (error) { pesan(error.message, 'err') }
   })
   bungkus.append(el('label', {}, alamat ? 'Unggah gambar baru' : 'Unggah foto (PNG, JPG, WebP)', berkas))
+  bungkus.append(el('p', { className: 'hint', textContent: alamat
+    ? 'PNG/JPG/WebP. Gambar besar otomatis diperkecil ke 1800 px.'
+    : 'Foto lanskap disarankan 1600 × 1000 px (minimal 1200 × 800). Foto besar otomatis diperkecil ke 1800 px.' }))
   if (alamat) {
     bungkus.append(
       el('label', {}, 'Alamat gambar', url),

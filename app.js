@@ -1900,7 +1900,9 @@ function loadArtwork(id, path, cache, isCurrent) {
   const pending = decodeImage(path).then(image => {
     cache.set(id, image)
     if (isCurrent()) render()
-  }).catch(() => {}).finally(() => pendingArtwork.delete(id))
+  }).catch(() => {
+    if (isCurrent()) mediaStatus.textContent = 'Gambar banner gagal dimuat. Periksa unggahan di halaman admin.'
+  }).finally(() => pendingArtwork.delete(id))
   pendingArtwork.set(id, pending)
   return pending
 }
