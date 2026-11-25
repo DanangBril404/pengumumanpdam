@@ -41,9 +41,16 @@ PORT = int(os.environ.get('STUDIO_PORT', '8000'))
 KINDS = ('hiasan', 'pipa', 'template', 'jenis', 'penyebab', 'wilayah')
 COOKIE = 'studio_auth'
 SESSION_AGE = 60 * 60 * 24 * 30
-MAX_BODY = 12 * 1024 * 1024
+MAX_BODY = 24 * 1024 * 1024
 MAX_IMAGE = 6 * 1024 * 1024
+MAX_AUDIO = 8 * 1024 * 1024
 ALLOWED_IMAGE = ('image/png', 'image/jpeg', 'image/webp')
+ALLOWED_AUDIO = ('audio/mpeg', 'audio/mp3', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/wav', 'audio/ogg')
+EXT_AUDIO = {
+    'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a',
+    'audio/aac': '.aac', 'audio/wav': '.wav', 'audio/ogg': '.ogg'
+}
+SETTINGS_KEY = 'instansi'
 
 
 def connect():
@@ -176,9 +183,17 @@ def rows_for(kind, only_enabled=True):
     return rows
 
 
+def tanpa_versi(alamat):
+    """Buang parameter ?v=… supaya URL tidak menumpuk versi saat disimpan ulang."""
+    if not isinstance(alamat, str) or not alamat.startswith('/api/media/'):
+        return alamat
+    return alamat.split('?', 1)[0]
+
+
 def media_url(alamat):
     """Tambahkan versi berkas pada URL media supaya cache lama (mis. 404 yang
     sempat tersimpan di browser/CDN) tidak lagi dipakai."""
+    alamat = tanpa_versi(alamat)
     if not alamat or not alamat.startswith('/api/media/'):
         return alamat
     nama = os.path.basename(urllib_unquote(alamat))
@@ -220,8 +235,47 @@ def payload():
         'types': [{'id': item['id'], 'name': item['name']} for item in pack(rows_for('jenis'))],
         'causes': pack(rows_for('penyebab')),
         'areas': pack(rows_for('wilayah')),
+        'settings': payload_settings(),
         'generated': time.strftime('%Y-%m-%d %H:%M:%S')
     }
+
+
+def payload_settings():
+    data = settings_baca()
+    data['logo'] = media_url(data['logo'])
+    data['backsound'] = media_url(data['backsound'])
+    return data
+
+
+def settings_baca():
+    """Identitas instansi + backsound video (disimpan di tabel meta)."""
+    bawaan = {'name': 'Perumda Air Minum Kota Magelang', 'logo': '', 'backsound': '', 'backsoundName': ''}
+    mentah = meta(SETTINGS_KEY)
+    if not mentah:
+        return bawaan
+    try:
+        data = json.loads(mentah)
+    except ValueError:
+        return bawaan
+    if not isinstance(data, dict):
+        return bawaan
+    hasil = dict(bawaan)
+    for kunci in bawaan:
+        if isinstance(data.get(kunci), str):
+            hasil[kunci] = data[kunci]
+    return hasil
+
+
+def settings_tulis(data):
+    sekarang = settings_baca()
+    for kunci in ('name', 'logo', 'backsound', 'backsoundName'):
+        if isinstance(data.get(kunci), str):
+            nilai = data[kunci].strip() if kunci == 'name' else data[kunci]
+            sekarang[kunci] = tanpa_versi(nilai) if kunci in ('logo', 'backsound') else nilai
+    if not sekarang['name']:
+        sekarang['name'] = 'Perumda Air Minum Kota Magelang'
+    meta(SETTINGS_KEY, json.dumps(sekarang, ensure_ascii=False))
+    return sekarang
 
 
 def slug(text):
@@ -285,6 +339,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.kirim(200, {'ok': True, 'db': os.path.exists(DB_PATH), 'versi': '1.0'})
         if jalur == '/api/data':
             return self.kirim(200, payload())
+        if jalur == '/api/settings':
+            return self.kirim(200, payload_settings())
         if jalur == '/api/session':
             return self.kirim(200, {'authenticated': self.cookie_auth(), 'needsSetup': not has_admin()})
         if jalur.startswith('/api/media/'):
@@ -354,7 +410,14 @@ class Handler(BaseHTTPRequestHandler):
         if jalur == '/api/upload':
             if not self.butuh_auth():
                 return
-            return self.simpan_gambar(data)
+            return self.simpan_media(data)
+
+        if jalur == '/api/settings':
+            if not self.butuh_auth():
+                return
+            hasil = settings_tulis(data if isinstance(data, dict) else {})
+            log_event('ubah-identitas', 'instansi', hasil.get('name', ''))
+            return self.kirim(200, {'ok': True, 'settings': payload_settings()})
 
         if jalur == '/api/items':
             if not self.butuh_auth():
@@ -402,22 +465,27 @@ class Handler(BaseHTTPRequestHandler):
             'Set-Cookie': '%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax' % (COOKIE, token, SESSION_AGE)
         })
 
-    def simpan_gambar(self, data):
+    def simpan_media(self, data):
         nama = str(data.get('name') or 'gambar')
         isi = str(data.get('data') or '')
         cocok = re.match(r'data:([\w/+.-]+);base64,(.*)$', isi, re.S)
         if not cocok:
-            return self.kirim(400, {'ok': False, 'pesan': 'Format gambar tidak dikenal.'})
+            return self.kirim(400, {'ok': False, 'pesan': 'Format berkas tidak dikenal.'})
         tipe, mentah = cocok.group(1), cocok.group(2)
-        if tipe not in ALLOWED_IMAGE:
-            return self.kirim(400, {'ok': False, 'pesan': 'Hanya PNG, JPG, atau WebP.'})
+        if tipe in ALLOWED_IMAGE:
+            batas, ekstensi = MAX_IMAGE, {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp'}[tipe]
+            pesan_besar = 'Gambar lebih dari 6 MB.'
+        elif tipe in ALLOWED_AUDIO:
+            batas, ekstensi = MAX_AUDIO, EXT_AUDIO.get(tipe, '.mp3')
+            pesan_besar = 'Berkas audio lebih dari 8 MB.'
+        else:
+            return self.kirim(400, {'ok': False, 'pesan': 'Hanya PNG/JPG/WebP atau MP3/M4A/WAV/OGG.'})
         try:
             biner = base64.b64decode(mentah)
         except ValueError:
-            return self.kirim(400, {'ok': False, 'pesan': 'Data gambar rusak.'})
-        if len(biner) > MAX_IMAGE:
-            return self.kirim(413, {'ok': False, 'pesan': 'Gambar lebih dari 6 MB.'})
-        ekstensi = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp'}[tipe]
+            return self.kirim(400, {'ok': False, 'pesan': 'Data berkas rusak.'})
+        if len(biner) > batas:
+            return self.kirim(413, {'ok': False, 'pesan': pesan_besar})
         berkas = time.strftime('%Y%m%d%H%M%S') + '-' + secrets.token_hex(4) + '-' + slug(os.path.splitext(nama)[0]) + ekstensi
         with open(os.path.join(UPLOAD_DIR, berkas), 'wb') as handle:
             handle.write(biner)

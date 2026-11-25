@@ -33,7 +33,11 @@ const fontLabels = {
 const canvas = document.querySelector('#poster')
 const ctx = canvas.getContext('2d')
 const status = document.querySelector('#status')
-const agency = 'Perumda Air Minum Kota Magelang'
+let agency = 'Perumda Air Minum Kota Magelang'
+/* Identitas dari back office (menu “Identitas & Video”): logo & backsound video. */
+let logoKustom = ''
+let backsoundUrl = ''
+let backsoundNama = ''
 const socials = [
   'Instagram  @perumdamkotamagelang.official',
   'Facebook  pdamkotamagelang.official',
@@ -2309,6 +2313,122 @@ document.querySelector('#download').addEventListener('click', async () => {
   }, 'image/png')
 })
 
+/* ---------- Unduh video 1080×1920 (9:16) + backsound dari back office ---------- */
+function mimeVideo() {
+  if (typeof MediaRecorder === 'undefined') return ''
+  const kandidat = [
+    'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm'
+  ]
+  return kandidat.find(tipe => MediaRecorder.isTypeSupported(tipe)) || ''
+}
+
+async function siapkanBacksound() {
+  if (!backsoundUrl) return null
+  const Konteks = window.AudioContext || window.webkitAudioContext
+  if (!Konteks) return null
+  const konteks = new Konteks()
+  const respons = await fetch(backsoundUrl, { cache: 'no-store' })
+  if (!respons.ok) throw new Error('backsound tidak bisa diunduh')
+  const buffer = await konteks.decodeAudioData(await respons.arrayBuffer())
+  const sumber = konteks.createBufferSource()
+  sumber.buffer = buffer
+  sumber.loop = true
+  const gain = konteks.createGain()
+  gain.gain.value = 0.9
+  const tujuan = konteks.createMediaStreamDestination()
+  sumber.connect(gain).connect(tujuan)
+  sumber.start()
+  return { konteks, sumber, track: tujuan.stream.getAudioTracks()[0] }
+}
+
+document.querySelector('#download-video').addEventListener('click', async () => {
+  const tombol = document.querySelector('#download-video')
+  if (tombol.dataset.sibuk === '1') return
+  if (typeof MediaRecorder === 'undefined' || !canvas.captureStream) {
+    status.textContent = 'Browser ini belum mendukung perekaman video. Pakai Chrome/Edge terbaru.'
+    return
+  }
+  if (!form.reportValidity()) return
+  const presetLama = posterSize
+  let audio = null
+  tombol.dataset.sibuk = '1'
+  tombol.disabled = true
+  status.textContent = 'Menyiapkan video 1080 × 1920…'
+  try {
+    if (posterSize !== 'story') setPosterSize('story', false)
+    await Promise.all([loadTemplateArtwork(template),
+      ...decorationLayers.filter(layer => !hiddenLayers.has(layer.id)).map(loadDecorationLayer)])
+    render()
+    const lebar = canvas.width
+    const tinggi = canvas.height
+    const potret = document.createElement('canvas')
+    potret.width = lebar
+    potret.height = tinggi
+    potret.getContext('2d').drawImage(canvas, 0, 0)
+    const mime = mimeVideo()
+    if (!mime) throw new Error('format perekaman tidak didukung browser ini')
+    const stream = canvas.captureStream(30)
+    try { audio = await siapkanBacksound() } catch { audio = null }
+    if (audio) stream.addTrack(audio.track)
+    const bagian = []
+    const perekam = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8000000 })
+    perekam.ondataavailable = event => { if (event.data && event.data.size) bagian.push(event.data) }
+    const selesai = new Promise(resolve => { perekam.onstop = resolve })
+    perekam.start(200)
+    const durasi = 8000
+    const mulai = performance.now()
+    await new Promise(resolve => {
+      function gambar() {
+        const t = Math.min(1, (performance.now() - mulai) / durasi)
+        const zoom = 1 + 0.06 * t
+        ctx.setTransform(1, 0, 0, 1, 0, 0)
+        ctx.fillStyle = '#04101f'
+        ctx.fillRect(0, 0, lebar, tinggi)
+        ctx.save()
+        ctx.translate(lebar / 2, tinggi / 2)
+        ctx.scale(zoom, zoom)
+        ctx.drawImage(potret, -lebar / 2, -tinggi / 2)
+        ctx.restore()
+        const redup = (1 - Math.min(1, t / 0.1) * Math.min(1, (1 - t) / 0.1)) * 0.95
+        if (redup > 0.002) {
+          ctx.fillStyle = 'rgba(4,16,31,' + redup.toFixed(3) + ')'
+          ctx.fillRect(0, 0, lebar, tinggi)
+        }
+        status.textContent = 'Merekam video… ' + Math.round(t * 100) + '%'
+        if (t < 1) requestAnimationFrame(gambar)
+        else resolve()
+      }
+      requestAnimationFrame(gambar)
+    })
+    perekam.stop()
+    await selesai
+    stream.getTracks().forEach(track => track.stop())
+    if (audio) { try { audio.sumber.stop() } catch {} ; try { audio.konteks.close() } catch {} ; audio = null }
+    const blob = new Blob(bagian, { type: mime })
+    const ekstensi = mime.startsWith('video/mp4') ? 'mp4' : 'webm'
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'pengumuman-aliran-air.' + ekstensi
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 2000)
+    status.textContent = 'Video ' + lebar + ' × ' + tinggi + ' siap (' + ekstensi.toUpperCase() +
+      (backsoundUrl ? ', dengan backsound' : ', tanpa backsound') + ').'
+  } catch (error) {
+    status.textContent = 'Video gagal dibuat: ' + error.message
+  } finally {
+    if (audio) { try { audio.sumber.stop() } catch {} ; try { audio.konteks.close() } catch {} }
+    tombol.dataset.sibuk = '0'
+    tombol.disabled = false
+    if (presetLama !== posterSize) setPosterSize(presetLama, false)
+    render()
+  }
+})
+
 document.querySelector('#copy').addEventListener('click', async () => {
   if (!form.reportValidity()) return
   const message = announcement(fields())
@@ -2344,7 +2464,10 @@ if (customTemplates.some(entry => entry.id === storedTemplate)) selectCustom(sto
 /* Logo paten selalu dipakai; kunci logo lama di browser dibersihkan agar tidak menimpa. */
 storeLocal('kabar-air-logo', null)
 function loadFixedLogo(attempt = 0) {
-  decodeImage(LOGO_PATH + (attempt ? '&retry=' + attempt : '')).then(image => setLogo(image))
+  const sumber = logoKustom || LOGO_PATH
+  const sambung = sumber.includes('?') ? '&' : '?'
+  const url = logoKustom ? sumber + sambung + 'retry=' + attempt : LOGO_PATH + (attempt ? '&retry=' + attempt : '')
+  decodeImage(url).then(image => setLogo(image))
     .catch(() => { if (attempt < 2) setTimeout(() => loadFixedLogo(attempt + 1), 1200) })
 }
 loadFixedLogo()
@@ -2399,6 +2522,18 @@ function alamatMedia(url) {
 
 function applyServerData(data) {
   let changed = false
+  if (data.settings && typeof data.settings === 'object') {
+    const nama = typeof data.settings.name === 'string' ? data.settings.name.trim() : ''
+    if (nama) agency = nama
+    const logoSebenarnya = typeof data.settings.logo === 'string' ? data.settings.logo : ''
+    if (logoSebenarnya !== logoKustom) {
+      logoKustom = logoSebenarnya
+      loadFixedLogo()
+    }
+    backsoundUrl = typeof data.settings.backsound === 'string' ? data.settings.backsound : ''
+    backsoundNama = typeof data.settings.backsoundName === 'string' ? data.settings.backsoundName : ''
+    changed = true
+  }
   if (Array.isArray(data.pipeArt) && data.pipeArt.length) {
     for (const [id, item] of Object.entries(backdrops)) if (item.server && item.kind === 'foto') delete backdrops[id]
     for (const item of data.pipeArt) {

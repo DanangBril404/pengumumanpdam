@@ -80,7 +80,7 @@ h3{font-size:14px;margin:0 0 8px;color:var(--muted)}
       <span class="status" id="status" role="status"></span>
     </div>
   </div>
-  <div class="card" style="margin-top:16px">
+  <div class="card" style="margin-top:16px" id="card-daftar">
     <h3>Daftar (<span id="jumlah">0</span>)</h3>
     <div id="daftar"></div>
   </div>
@@ -94,12 +94,14 @@ const KIND = {
   template: { label: 'Banner Animasi', hint: 'Banner ilustrasi pada galeri “Banner Animasi” di aplikasi.' },
   jenis: { label: 'Jenis Pengumuman', hint: 'Pilihan pada kolom “Jenis”. Di aplikasi hanya bisa dipilih.' },
   penyebab: { label: 'Penyebab Gangguan', hint: 'Pilihan penyebab + rincian yang otomatis mengisi kolom rincian.' },
-  wilayah: { label: 'Pilihan Wilayah', hint: 'Daftar wilayah siap pakai (satu wilayah per baris).' }
+  wilayah: { label: 'Pilihan Wilayah', hint: 'Daftar wilayah siap pakai (satu wilayah per baris).' },
+  instansi: { label: 'Identitas & Video', hint: 'Nama perusahaan, logo perusahaan, dan backsound MP3 untuk video pengumuman.' }
 }
 let aktif = 'hiasan'
 let editId = null
 let cache = {}
 let pipeArt = []
+let settings = { name: 'Perumda Air Minum Kota Magelang', logo: '', backsound: '', backsoundName: '' }
 
 const $ = (s) => document.querySelector(s)
 const el = (tag, props = {}, ...anak) => {
@@ -170,6 +172,7 @@ async function muat() {
   cache.jenis = semua.types.map(d => ({ id: d.id, name: d.name, enabled: true, body: {} }))
   cache.penyebab = semua.causes
   cache.wilayah = semua.areas
+  if (semua.settings) settings = Object.assign(settings, semua.settings)
   pipeArt = semua.pipeArt
   gambarTabs()
   gambarForm()
@@ -258,12 +261,69 @@ function fieldGambar(nilai, onChange, { alamat = true } = {}) {
   return bungkus
 }
 
+/* Tab "Identitas & Video": nama perusahaan, logo, dan backsound MP3 video. */
+function formInstansi(form) {
+  const nama = el('input', { value: settings.name || '', maxlength: 80 })
+  form.append(el('label', {}, 'Nama perusahaan (tampil di poster & teks pengumuman)', nama))
+  form.__nama = nama
+  form.__body = {
+    logo: settings.logo || '',
+    backsound: settings.backsound || '',
+    backsoundName: settings.backsoundName || ''
+  }
+  form.append(fieldGambar(form.__body.logo, (v) => { form.__body.logo = v }, { alamat: false }))
+  const berkas = el('input', { type: 'file', accept: 'audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,audio/ogg' })
+  const info = el('p', {
+    className: 'hint',
+    textContent: form.__body.backsoundName ? 'Backsound: ' + form.__body.backsoundName : 'Belum ada backsound video.'
+  })
+  const audio = el('audio', { controls: true, src: form.__body.backsound || '' })
+  audio.style.width = '100%'
+  berkas.addEventListener('change', async () => {
+    const file = berkas.files[0]
+    if (!file) return
+    if (!/^audio\//.test(file.type)) { pesan('Pilih berkas MP3/M4A/WAV/OGG.', 'err'); return }
+    if (file.size > 8 * 1024 * 1024) { pesan('Ukuran audio maksimal 8 MB.', 'err'); return }
+    try {
+      pesan('Mengunggah backsound…')
+      const dataUrl = await new Promise((res, rej) => {
+        const pembaca = new FileReader()
+        pembaca.onerror = () => rej(new Error('Gagal membaca berkas audio.'))
+        pembaca.onload = () => res(pembaca.result)
+        pembaca.readAsDataURL(file)
+      })
+      const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: dataUrl }) })
+      form.__body.backsound = hasil.url
+      form.__body.backsoundName = file.name
+      audio.src = hasil.url
+      info.textContent = 'Backsound: ' + file.name
+      pesan('Backsound terunggah. Tekan Simpan untuk mengaktifkan.', 'ok')
+    } catch (error) { pesan(error.message, 'err') }
+  })
+  form.append(el('label', {}, 'Unggah backsound MP3 untuk video (maks 8 MB)', berkas), info, audio)
+  const hapusAudio = el('button', { className: 'btn small danger', type: 'button', textContent: 'Hapus backsound' })
+  hapusAudio.addEventListener('click', () => {
+    form.__body.backsound = ''
+    form.__body.backsoundName = ''
+    audio.removeAttribute('src')
+    info.textContent = 'Belum ada backsound video.'
+    pesan('Backsound dikosongkan. Tekan Simpan.', 'ok')
+  })
+  form.append(
+    el('p', { className: 'hint', textContent: 'Video pengumuman selalu 1080 × 1920 px (9:16) dan memakai backsound ini bila tersedia.' }),
+    hapusAudio
+  )
+  $('#simpan').textContent = 'Simpan identitas'
+  editId = null
+}
+
 function gambarForm(item = null) {
   const info = KIND[aktif]
   $('#judul').textContent = (item ? 'Ubah: ' : 'Tambah: ') + info.label
   $('#petunjuk').textContent = info.hint
   const form = $('#form')
   form.replaceChildren()
+  if (aktif === 'instansi') return formInstansi(form)
   const nama = el('input', { value: item ? item.name : '', maxlength: 90 })
   form.append(el('label', {}, aktif === 'jenis' ? 'Nama jenis' : 'Nama', nama))
   form.dataset.nama = ''
@@ -316,6 +376,13 @@ function gambarForm(item = null) {
 
 function gambarDaftar() {
   const daftar = $('#daftar')
+  if (aktif === 'instansi') {
+    $('#card-daftar').hidden = true
+    $('#jumlah').textContent = '0'
+    daftar.replaceChildren()
+    return
+  }
+  $('#card-daftar').hidden = false
   const items = cache[aktif] || []
   $('#jumlah').textContent = items.length
   daftar.replaceChildren()
@@ -351,6 +418,23 @@ function gambarDaftar() {
 
 $('#simpan').addEventListener('click', async () => {
   const form = $('#form')
+  if (aktif === 'instansi') {
+    try {
+      pesan('Menyimpan identitas…')
+      await api('/api/settings', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: (form.__nama.value || '').trim(),
+          logo: form.__body.logo || '',
+          backsound: form.__body.backsound || '',
+          backsoundName: form.__body.backsoundName || ''
+        })
+      })
+      pesan('Identitas & backsound tersimpan.', 'ok')
+      await muat()
+    } catch (error) { pesan(error.message, 'err') }
+    return
+  }
   const nama = form.__nama.value.trim()
   if (!nama) { pesan('Nama wajib diisi.', 'err'); return }
   if ((aktif === 'hiasan' || aktif === 'pipa' || aktif === 'template') && !form.__body.image) {
