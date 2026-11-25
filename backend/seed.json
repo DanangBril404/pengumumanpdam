@@ -1,0 +1,335 @@
+{
+ "items": [
+  {
+   "body": {
+    "image": "/ornament-chrome-tap.webp"
+   },
+   "enabled": 1,
+   "id": "waves",
+   "kind": "hiasan",
+   "name": "Kran Krom & Arus Air"
+  },
+  {
+   "body": {
+    "image": "/ornament-pressure-station.webp"
+   },
+   "enabled": 1,
+   "id": "ripples",
+   "kind": "hiasan",
+   "name": "Menara Air & Katup"
+  },
+  {
+   "body": {
+    "image": "/ornament-water-splash.webp"
+   },
+   "enabled": 1,
+   "id": "drops",
+   "kind": "hiasan",
+   "name": "Percikan Air Jernih"
+  },
+  {
+   "body": {
+    "image": "/ornament-brass-tap.webp"
+   },
+   "enabled": 1,
+   "id": "river",
+   "kind": "hiasan",
+   "name": "Kran Kuningan"
+  },
+  {
+   "body": {
+    "image": "/ornament-pipe-network.webp"
+   },
+   "enabled": 1,
+   "id": "pipes",
+   "kind": "hiasan",
+   "name": "Jaringan Pipa PDAM"
+  },
+  {
+   "body": {
+    "image": "/repair-work.webp"
+   },
+   "enabled": 1,
+   "id": "art-repair",
+   "kind": "pipa",
+   "name": "Sambungan Pipa (pekerjaan)"
+  },
+  {
+   "body": {
+    "image": "/pipe-leak.webp"
+   },
+   "enabled": 1,
+   "id": "art-leak",
+   "kind": "pipa",
+   "name": "Kebocoran Pipa"
+  },
+  {
+   "body": {
+    "image": "/pipe-trench.webp"
+   },
+   "enabled": 1,
+   "id": "art-trench",
+   "kind": "pipa",
+   "name": "Galian Pipa"
+  },
+  {
+   "body": {
+    "image": "/pipe-valve.webp"
+   },
+   "enabled": 1,
+   "id": "art-valve",
+   "kind": "pipa",
+   "name": "Katup"
+  },
+  {
+   "body": {
+    "image": "/pipe-pressure.webp"
+   },
+   "enabled": 1,
+   "id": "art-pressure",
+   "kind": "pipa",
+   "name": "Uji Tekanan"
+  },
+  {
+   "body": {
+    "image": "/pipe-night.webp"
+   },
+   "enabled": 1,
+   "id": "art-night",
+   "kind": "pipa",
+   "name": "Perbaikan Malam"
+  },
+  {
+   "body": {
+    "image": "/pipe-replacement.webp"
+   },
+   "enabled": 1,
+   "id": "art-replacement",
+   "kind": "pipa",
+   "name": "Penggantian Pipa"
+  },
+  {
+   "body": {
+    "animation": "water",
+    "category": "pipa",
+    "colors": [
+     "#071c35",
+     "#125071",
+     "#9eecff"
+    ],
+    "image": "/repair-work.webp"
+   },
+   "enabled": 1,
+   "id": "repair",
+   "kind": "template",
+   "name": "Sambungan Pipa"
+  },
+  {
+   "body": {
+    "animation": "water",
+    "category": "pipa",
+    "colors": [
+     "#082454",
+     "#1264a1",
+     "#b9f2ff"
+    ],
+    "image": "/pipe-leak.webp"
+   },
+   "enabled": 1,
+   "id": "leak",
+   "kind": "template",
+   "name": "Kebocoran Pipa"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "pipa",
+    "colors": [
+     "#1f2936",
+     "#405970",
+     "#ffdb9c"
+    ],
+    "image": "/pipe-trench.webp"
+   },
+   "enabled": 1,
+   "id": "trench",
+   "kind": "template",
+   "name": "Galian Pipa"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "pipa",
+    "colors": [
+     "#0a2e3a",
+     "#0e696c",
+     "#a1f6f2"
+    ],
+    "image": "/pipe-valve.webp"
+   },
+   "enabled": 1,
+   "id": "valve",
+   "kind": "template",
+   "name": "Penggantian Katup"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "pipa",
+    "colors": [
+     "#172844",
+     "#3b5780",
+     "#d3e7ff"
+    ],
+    "image": "/pipe-pressure.webp"
+   },
+   "enabled": 1,
+   "id": "pressure",
+   "kind": "template",
+   "name": "Uji Tekanan"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "pipa",
+    "colors": [
+     "#171d37",
+     "#374775",
+     "#ffe29b"
+    ],
+    "image": "/pipe-night.webp"
+   },
+   "enabled": 1,
+   "id": "night",
+   "kind": "template",
+   "name": "Perbaikan Malam"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "pipa",
+    "colors": [
+     "#0c333d",
+     "#20747a",
+     "#bdf9ff"
+    ],
+    "image": "/pipe-replacement.webp"
+   },
+   "enabled": 1,
+   "id": "replacement",
+   "kind": "template",
+   "name": "Penggantian Pipa"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "listrik",
+    "colors": [
+     "#21243a",
+     "#51476d",
+     "#ffe2a2"
+    ],
+    "image": "/electrical-panel.webp"
+   },
+   "enabled": 1,
+   "id": "panel",
+   "kind": "template",
+   "name": "Panel Listrik"
+  },
+  {
+   "body": {
+    "animation": "",
+    "category": "listrik",
+    "colors": [
+     "#262440",
+     "#485889",
+     "#ffe7a6"
+    ],
+    "image": "/electrical-network.webp"
+   },
+   "enabled": 1,
+   "id": "power",
+   "kind": "template",
+   "name": "Jaringan Listrik"
+  },
+  {
+   "body": {},
+   "enabled": 1,
+   "id": "jenis-gangguan",
+   "kind": "jenis",
+   "name": "Gangguan Aliran Air"
+  },
+  {
+   "body": {},
+   "enabled": 1,
+   "id": "jenis-pemeliharaan",
+   "kind": "jenis",
+   "name": "Pemeliharaan Terjadwal"
+  },
+  {
+   "body": {},
+   "enabled": 1,
+   "id": "jenis-normal",
+   "kind": "jenis",
+   "name": "Aliran Air Kembali Normal"
+  },
+  {
+   "body": {
+    "text": "Pemeliharaan jaringan listrik oleh ULTG di Gardu Induk Sanggrahan, Kota Magelang, menyebabkan aliran air dari Mata Air Tuk Pecah terganggu sementara."
+   },
+   "enabled": 1,
+   "id": "penyebab-pln",
+   "kind": "penyebab",
+   "name": "Gangguan Listrik PLN"
+  },
+  {
+   "body": {
+    "text": "Perbaikan kebocoran pipa distribusi sedang dilakukan. Aliran air di wilayah terdampak dapat berkurang atau terhenti sementara."
+   },
+   "enabled": 1,
+   "id": "penyebab-leak",
+   "kind": "penyebab",
+   "name": "Kebocoran Pipa"
+  },
+  {
+   "body": {
+    "text": "Perbaikan panel listrik pada fasilitas distribusi air sedang dilakukan. Aliran air di wilayah terdampak dapat berkurang atau terhenti sementara."
+   },
+   "enabled": 1,
+   "id": "penyebab-electrical",
+   "kind": "penyebab",
+   "name": "Perbaikan Panel Listrik"
+  },
+  {
+   "body": {
+    "text": ""
+   },
+   "enabled": 1,
+   "id": "penyebab-other",
+   "kind": "penyebab",
+   "name": "Penyebab Lainnya"
+  },
+  {
+   "body": {
+    "items": [
+     "Kelurahan Tidar Utara",
+     "Kelurahan Tidar Selatan",
+     "Kelurahan Magersari",
+     "Kelurahan Jurangombo Utara",
+     "Kelurahan Jurangombo Selatan",
+     "Kelurahan Cacaban",
+     "Kelurahan Rejowinangun Utara",
+     "Kelurahan Rejowinangun Selatan",
+     "Kelurahan Kemirirejo",
+     "Melati Purna dan sekitarnya",
+     "Perum Lembah Hijau",
+     "RSUD Kota Magelang"
+    ]
+   },
+   "enabled": 1,
+   "id": "wilayah-master",
+   "kind": "wilayah",
+   "name": "Master Wilayah Terdampak"
+  }
+ ]
+}

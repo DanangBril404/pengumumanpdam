@@ -1,9 +1,6 @@
 const defaultTemplate = 'repair'
 const backdrops = {
-  repair: { name: 'Sambungan Pipa', art: 'repair-work.webp', colors: ['#071c35', '#125071', '#9eecff'], badges: [
-    [421 / 640, 130 / 427, 29, -.30], [532 / 640, 67 / 427, 28, -.12],
-    [301 / 640, 210 / 427, 31, .25], [575 / 640, 160 / 427, 28, -.15]
-  ], animation: 'water' },
+  repair: { name: 'Sambungan Pipa', art: 'repair-work.webp', colors: ['#071c35', '#125071', '#9eecff'], animation: 'water' },
   leak: { name: 'Kebocoran Pipa', art: 'pipe-leak.webp', colors: ['#082454', '#1264a1', '#b9f2ff'], animation: 'water' },
   trench: { name: 'Galian Pipa', art: 'pipe-trench.webp', colors: ['#1f2936', '#405970', '#ffdb9c'] },
   valve: { name: 'Penggantian Katup', art: 'pipe-valve.webp', colors: ['#0a2e3a', '#0e696c', '#a1f6f2'] },

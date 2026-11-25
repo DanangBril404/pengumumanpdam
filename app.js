@@ -341,7 +341,7 @@ function populate(values) {
     form.elements[key].value = typeof restored[key] === 'string' ? restored[key] : value
   }
   form.elements.agency.value = agency
-  syncCauseOptions(form.elements.cause.value)
+  populateCauseOptions(form.elements.cause.value)
 }
 
 function fields() {
@@ -975,32 +975,24 @@ function mountPresetEditor({ id, entries, key, placeholder, currentText, changed
   return populateOptions
 }
 
-const syncCauseOptions = mountPresetEditor({
-  id: '#cause-presets', entries: causes, key: 'kabar-air-cause-presets', placeholder: 'Pilih penyebab',
-  currentText: () => form.elements.note.value,
-  changed: (entries, id) => {
-    causes = entries
-    if (id) form.elements.note.value = selectedCause(id).text
-    update()
-    save()
-  }
-})
+/* Penyebab gangguan & rinciannya diatur dari halaman admin; di sini hanya pilihan. */
+const causeSelect = document.querySelector('select[name=cause]')
+function populateCauseOptions(selected = causeSelect.value) {
+  causeSelect.replaceChildren(new Option('Pilih penyebab', ''))
+  for (const entry of causes) causeSelect.add(new Option(entry.title, entry.id))
+  const cocok = causes.find(entry => entry.id === selected || entry.alias === selected)
+  causeSelect.value = cocok ? cocok.id : ''
+}
+populateCauseOptions()
+/* Pilihan wilayah diatur dari halaman admin; di sini hanya memilih daftar. */
 const areaMenu = document.querySelector('#area-menu')
-const areaMaster = document.querySelector('#area-master')
-const areaMasterText = document.querySelector('#area-master-text')
-const areaMasterStatus = document.querySelector('#area-master-status')
-const areaMasterKey = 'kabar-air-area-master'
+const areaStatus = document.querySelector('#area-master-status')
 const areaListsKey = 'kabar-air-area-lists'
-const areaListName = document.querySelector('#area-list-name')
-const areaNameRow = document.querySelector('#area-name-row')
-const areaListLabel = document.querySelector('#area-list-label')
-const deleteAreaList = document.querySelector('#delete-area-list')
 let areaLists = readStorage(areaListsKey, [])
-let areaSelection = ''
 
 function showAreaMasterStatus(message) {
-  areaMasterStatus.textContent = message
-  areaMasterStatus.hidden = !message
+  areaStatus.textContent = message
+  areaStatus.hidden = !message
 }
 
 function useMasterAreas(text) {
@@ -1010,101 +1002,26 @@ function useMasterAreas(text) {
 }
 
 function populateAreaMenu(selected = '') {
-  areaMenu.replaceChildren(new Option('Pilih menu wilayah', ''), new Option('Master Wilayah Terdampak', 'master'))
+  areaMenu.replaceChildren(new Option('Pilih pilihan wilayah', ''))
   for (const entry of areaLists) areaMenu.add(new Option(entry.title, entry.id))
-  areaMenu.value = selected
-}
-
-function openAreaList(id, title, text, apply = false) {
-  areaSelection = id
-  areaMaster.hidden = false
-  areaNameRow.hidden = id === 'master'
-  deleteAreaList.hidden = !id || id === 'master'
-  areaListLabel.textContent = id === 'master' ? 'Master Wilayah Terdampak' : id ? 'Edit pilihan wilayah' : 'Pilihan wilayah baru'
-  areaListName.value = title
-  areaMasterText.value = text
-  showAreaMasterStatus(apply ? 'Daftar wilayah dimasukkan ke poster.' : '')
-  if (apply) useMasterAreas(text)
-  if (id) areaMasterText.focus()
-  else areaListName.focus()
+  areaMenu.value = areaLists.some(entry => entry.id === selected) ? selected : ''
 }
 
 populateAreaMenu()
 areaMenu.addEventListener('change', () => {
-  if (areaMenu.value === '') {
-    areaMaster.hidden = true
+  const entry = areaLists.find(item => item.id === areaMenu.value)
+  if (!entry) {
     showAreaMasterStatus('')
     return
   }
-  if (areaMenu.value === 'master') {
-    const saved = readStorage(areaMasterKey, null)
-    const previous = readStorage('kabar-air-area-presets', []).find(entry =>
-      entry.title.trim().toLocaleLowerCase('id') === 'master wilayah terdampak')
-    openAreaList('master', '', saved ?? previous?.text ?? form.elements.area.value, saved !== null)
-    return
-  }
-  const entry = areaLists.find(item => item.id === areaMenu.value)
-  if (entry) openAreaList(entry.id, entry.title, entry.text, true)
-})
-
-document.querySelector('#new-area-list').addEventListener('click', () => {
-  areaMenu.value = ''
-  openAreaList('', '', '')
-})
-
-document.querySelector('#save-area-master').addEventListener('click', () => {
-  const unique = new Map()
-  for (const area of locations(areaMasterText.value)) {
-    const key = area.toLocaleLowerCase('id')
-    if (!unique.has(key)) unique.set(key, area)
-  }
-  const text = [...unique.values()].join('\n')
-  if (areaSelection === 'master') {
-    if (!storeLocal(areaMasterKey, text)) return
-  } else {
-    const title = areaListName.value.trim()
-    if (!title || !text) {
-      showAreaMasterStatus('Isi nama pilihan dan minimal satu wilayah.')
-      return
-    }
-    const key = title.toLocaleLowerCase('id')
-    if (key === 'master wilayah terdampak' || areaLists.some(item =>
-      item.id !== areaSelection && item.title.toLocaleLowerCase('id') === key)) {
-      showAreaMasterStatus('Nama pilihan sudah digunakan.')
-      return
-    }
-    const entry = { id: areaSelection || buatId(), title, text }
-    const next = areaSelection ? areaLists.map(item => item.id === entry.id ? entry : item) : [...areaLists, entry]
-    if (!storeLocal(areaListsKey, next)) return
-    areaLists = next
-    populateAreaMenu(entry.id)
-    openAreaList(entry.id, title, text)
-  }
-  areaMasterText.value = text
-  useMasterAreas(text)
-  showAreaMasterStatus('Daftar disimpan dan diterapkan ke poster.')
-})
-
-deleteAreaList.addEventListener('click', () => {
-  if (!areaSelection || areaSelection === 'master') return
-  const next = areaLists.filter(item => item.id !== areaSelection)
-  if (!storeLocal(areaListsKey, next)) return
-  areaLists = next
-  populateAreaMenu()
-  areaMaster.hidden = true
-  showAreaMasterStatus('Pilihan wilayah dihapus dari dropdown.')
-  areaMenu.focus()
-})
-
-document.querySelector('#close-area-master').addEventListener('click', () => {
-  areaMenu.value = ''
-  areaMaster.hidden = true
-  showAreaMasterStatus('')
-  areaMenu.focus()
+  useMasterAreas(entry.text)
+  showAreaMasterStatus('Wilayah dari "' + entry.title + '" dipakai di poster.')
 })
 
 document.querySelector('#clear-areas').addEventListener('click', () => {
   form.elements.area.value = ''
+  areaMenu.value = ''
+  showAreaMasterStatus('')
   update()
   save()
 })
@@ -1428,10 +1345,15 @@ document.querySelector('#reset-base-color').addEventListener('click', () => {
   mediaStatus.textContent = 'Warna latar kembali mengikuti template.'
 })
 
-for (const [id, backdrop] of Object.entries(backdrops)) {
-  if (backdrop.electrical || backdrop.custom) continue
-  document.querySelector('#pipe-templates').append(buatTile(id, backdrop))
+function showPipeGallery() {
+  const gallery = document.querySelector('#pipe-templates')
+  gallery.replaceChildren()
+  for (const [id, backdrop] of Object.entries(backdrops)) {
+    if (backdrop.electrical || backdrop.custom) continue
+    gallery.append(buatTile(id, backdrop))
+  }
 }
+showPipeGallery()
 showElectricalGallery()
 
 async function loadImageFile(file) {
@@ -1941,7 +1863,6 @@ document.querySelector('#reset').addEventListener('click', () => {
   resetPresetPositions(posterSize)
   populate(example)
   areaMenu.value = ''
-  areaMaster.hidden = true
   showAreaMasterStatus('')
   manualImage = null
   baseColor = ''
@@ -2052,3 +1973,85 @@ showOrnamentGallery()
 showSavedLayouts()
 loadTemplateArtwork(template)
 for (const layer of decorationLayers) if (!hiddenLayers.has(layer.id)) loadDecorationLayer(layer)
+
+/* ------------------------------------------------------------------
+   Data dari backend admin (template, hiasan, jenis, penyebab, wilayah).
+   Bila backend tidak tersedia, aplikasi tetap memakai daftar bawaan.
+   ------------------------------------------------------------------ */
+const studioApi = new URLSearchParams(location.search).get('api') || ''
+
+function applyServerData(data) {
+  let changed = false
+  if (Array.isArray(data.templates) && data.templates.length) {
+    for (const [id, item] of Object.entries(backdrops)) if (!item.custom) delete backdrops[id]
+    for (const item of data.templates) {
+      backdrops[item.id] = {
+        name: item.name,
+        colors: Array.isArray(item.colors) && item.colors.length === 3 ? item.colors : ['#071c35', '#125071', '#9eecff'],
+        art: item.image || null,
+        electrical: item.category === 'listrik',
+        animation: item.animation === 'water' ? 'water' : undefined,
+        badges: false,
+        server: true
+      }
+    }
+    if (!Object.hasOwn(backdrops, template)) template = data.templates[0].id
+    showPipeGallery()
+    showElectricalGallery()
+    changed = true
+  }
+  if (Array.isArray(data.decorations) && data.decorations.length) {
+    for (const key of Object.keys(decorationNames)) delete decorationNames[key]
+    for (const key of Object.keys(decorationFiles)) delete decorationFiles[key]
+    const lokal = ornamentTemplates.filter(item => item.type === 'custom' || item.sourceKey)
+    for (const item of data.decorations) {
+      decorationNames[item.id] = item.name
+      decorationFiles[item.id] = item.image
+    }
+    ornamentTemplates = [
+      ...data.decorations.map(item => ({ id: item.id, type: item.id, name: item.name })),
+      ...lokal.filter(item => !data.decorations.some(server => server.id === item.id))
+    ]
+    showOrnamentGallery()
+    changed = true
+  }
+  if (Array.isArray(data.causes) && data.causes.length) {
+    causes = data.causes.map(item => ({
+      id: item.id,
+      alias: item.id.startsWith('penyebab-') ? item.id.slice('penyebab-'.length) : item.id,
+      title: item.name,
+      text: (item.body && item.body.text) || ''
+    }))
+    populateCauseOptions()
+    changed = true
+  }
+  if (Array.isArray(data.areas)) {
+    areaLists = data.areas.map(item => ({
+      id: item.id, title: item.name, text: ((item.body && item.body.items) || []).join('\n')
+    }))
+    populateAreaMenu(areaMenu.value)
+    changed = true
+  }
+  if (Array.isArray(data.types) && data.types.length) {
+    const select = form.elements.type
+    const current = select.value
+    select.replaceChildren(...data.types.map(item => new Option(item.name, item.name)))
+    select.value = data.types.some(item => item.name === current) ? current : data.types[0].name
+    changed = true
+  }
+  if (changed) {
+    update()
+    loadTemplateArtwork(template)
+  }
+}
+
+async function loadServerData() {
+  try {
+    const response = await fetch(studioApi + '/api/data', { cache: 'no-store' })
+    if (!response.ok) return
+    applyServerData(await response.json())
+  } catch (error) {
+    /* offline / backend mati: daftar bawaan tetap dipakai */
+  }
+}
+loadServerData()

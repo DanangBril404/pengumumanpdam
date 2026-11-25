@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Perumda Studio</title>
+<style>
+:root{--bg:#0f1c2e;--panel:#16273c;--line:#26405c;--ink:#eaf2fb;--muted:#9db4cc;--blue:#2b7fd4;--ok:#2fae6a;--danger:#d1495b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,'Segoe UI',sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:#12233a;flex-wrap:wrap}
+header h1{font-size:17px;margin:0;letter-spacing:-.2px}
+header .spacer{flex:1}
+.wrap{max-width:1120px;margin:0 auto;padding:18px 20px 40px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.tab{border:1px solid var(--line);background:#13253a;color:var(--muted);border-radius:999px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer}
+.tab[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:#1b3350;color:var(--ink);border-radius:8px;padding:8px 12px;font-weight:700;font-size:13px}
+.btn:hover{background:#224063}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn.danger{background:#3a1f2a;border-color:#6d2f3d;color:#ffc3cd}
+.btn.small{padding:4px 8px;font-size:12px}
+input,textarea,select{width:100%;background:#0d1c2e;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font:inherit}
+textarea{resize:vertical}
+label{display:grid;gap:5px;font-size:13px;font-weight:700;color:var(--muted)}
+label.inline{display:flex;align-items:center;gap:8px}
+label.inline input{width:auto}
+.grid{display:grid;gap:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.item{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:#13253a;display:flex;gap:12px;align-items:center}
+.item img{width:76px;height:48px;object-fit:cover;border-radius:6px;background:#0a1726;flex:0 0 auto}
+.item .nama{flex:1;min-width:0}
+.item .nama b{display:block;font-size:14px}
+.item .nama small{color:var(--muted)}
+.item.off{opacity:.5}
+.muted{color:var(--muted)}
+.status{min-height:20px;font-size:13px;color:var(--muted);margin:10px 0 0}
+.status.ok{color:#8ff0bb}
+.status.err{color:#ffb3bf}
+.hidden{display:none!important}
+.login{max-width:420px;margin:60px auto}
+.swatches{display:flex;gap:8px}
+.swatches input{width:70px;height:38px;padding:2px}
+h2{font-size:16px;margin:0 0 10px}
+h3{font-size:14px;margin:0 0 8px;color:var(--muted)}
+.hint{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Admin Perumda Studio</h1>
+  <span class="muted" style="font-size:13px">Kelola template, hiasan, jenis, penyebab, dan wilayah</span>
+  <span class="spacer"></span>
+  <a class="btn" href="/" target="_blank" rel="noopener">Buka aplikasi poster</a>
+  <button class="btn" id="keluar" type="button">Keluar</button>
+</header>
+
+<div id="login-box" class="login card hidden">
+  <h2 id="login-title">Masuk admin</h2>
+  <p class="hint" id="login-hint">Masukkan sandi admin.</p>
+  <div class="grid">
+    <label>Sandi<input id="login-pass" type="password" autocomplete="current-password"></label>
+    <button class="btn primary" id="login-btn" type="button">Masuk</button>
+    <p class="status" id="login-status" role="status"></p>
+  </div>
+</div>
+
+<div id="app-box" class="wrap hidden">
+  <div class="tabs" id="tabs"></div>
+  <div class="card">
+    <h2 id="judul">—</h2>
+    <p class="hint" id="petunjuk"></p>
+    <div class="grid" id="form"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary" id="simpan" type="button">Simpan</button>
+      <button class="btn" id="batal" type="button">Batal / baru</button>
+      <span class="status" id="status" role="status"></span>
+    </div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <h3>Daftar (<span id="jumlah">0</span>)</h3>
+    <div id="daftar"></div>
+  </div>
+</div>
+
+<script>
+const API = ''
+const KIND = {
+  hiasan: { label: 'Hiasan Poster', hint: 'Gambar hiasan yang muncul di galeri “Template Hiasan Poster”.' },
+  pipa: { label: 'Hiasan Pipa', hint: 'Koleksi gambar pipa; bisa dipakai sebagai gambar template.' },
+  template: { label: 'Template Pipa & Listrik', hint: 'Template latar poster pada galeri Perbaikan pipa / Perbaikan listrik.' },
+  jenis: { label: 'Jenis Pengumuman', hint: 'Pilihan pada kolom “Jenis”. Di aplikasi hanya bisa dipilih.' },
+  penyebab: { label: 'Penyebab Gangguan', hint: 'Pilihan penyebab + rincian yang otomatis mengisi kolom rincian.' },
+  wilayah: { label: 'Pilihan Wilayah', hint: 'Daftar wilayah siap pakai (satu wilayah per baris).' }
+}
+let aktif = 'hiasan'
+let editId = null
+let cache = {}
+let pipeArt = []
+
+const $ = (s) => document.querySelector(s)
+const el = (tag, props = {}, ...anak) => {
+  const node = Object.assign(document.createElement(tag), props)
+  for (const a of anak) node.append(a)
+  return node
+}
+function pesan(teks, jenis = '') {
+  const node = $('#status')
+  node.textContent = teks
+  node.className = 'status ' + jenis
+}
+
+async function api(path, opsi = {}) {
+  const res = await fetch(API + path, Object.assign({ headers: { 'Content-Type': 'application/json' } }, opsi))
+  let data = {}
+  try { data = await res.json() } catch {}
+  if (!res.ok) throw new Error(data.pesan || ('Galat ' + res.status))
+  return data
+}
+
+/* ---------- login ---------- */
+async function cekSesi() {
+  const sesi = await api('/api/session')
+  if (sesi.authenticated) {
+    $('#login-box').classList.add('hidden')
+    $('#app-box').classList.remove('hidden')
+    await muat()
+    return
+  }
+  $('#app-box').classList.add('hidden')
+  $('#login-box').classList.remove('hidden')
+  $('#login-title').textContent = sesi.needsSetup ? 'Buat sandi admin' : 'Masuk admin'
+  $('#login-hint').textContent = sesi.needsSetup
+    ? 'Pertama kali dipakai: buat sandi admin (minimal 8 karakter). Simpan baik-baik.'
+    : 'Masukkan sandi admin.'
+  $('#login-btn').textContent = sesi.needsSetup ? 'Buat sandi' : 'Masuk'
+  $('#login-btn').dataset.mode = sesi.needsSetup ? 'setup' : 'login'
+}
+$('#login-btn').addEventListener('click', async () => {
+  const mode = $('#login-btn').dataset.mode || 'login'
+  const sandi = $('#login-pass').value
+  const status = $('#login-status')
+  status.className = 'status'
+  status.textContent = 'Memproses…'
+  try {
+    await api('/api/' + mode, { method: 'POST', body: JSON.stringify({ password: sandi }) })
+    $('#login-pass').value = ''
+    status.textContent = ''
+    await cekSesi()
+  } catch (error) {
+    status.className = 'status err'
+    status.textContent = error.message
+  }
+})
+$('#login-pass').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#login-btn').click() })
+$('#keluar').addEventListener('click', async () => {
+  await api('/api/logout', { method: 'POST', body: '{}' })
+  cekSesi()
+})
+
+/* ---------- data ---------- */
+async function muat() {
+  const semua = await api('/api/data')
+  cache.template = semua.templates.map(t => ({ id: t.id, name: t.name, enabled: true, body: { category: t.category, image: t.image, colors: t.colors, animation: t.animation } }))
+  cache.hiasan = semua.decorations.map(d => ({ id: d.id, name: d.name, enabled: true, body: { image: d.image } }))
+  cache.pipa = semua.pipeArt.map(d => ({ id: d.id, name: d.name, enabled: true, body: { image: d.image } }))
+  cache.jenis = semua.types.map(d => ({ id: d.id, name: d.name, enabled: true, body: {} }))
+  cache.penyebab = semua.causes
+  cache.wilayah = semua.areas
+  pipeArt = semua.pipeArt
+  gambarTabs()
+  gambarForm()
+  gambarDaftar()
+}
+
+function gambarTabs() {
+  const tabs = $('#tabs')
+  tabs.replaceChildren()
+  for (const [kunci, info] of Object.entries(KIND)) {
+    const tombol = el('button', { className: 'tab', type: 'button', textContent: info.label })
+    tombol.setAttribute('aria-pressed', String(kunci === aktif))
+    tombol.addEventListener('click', () => { aktif = kunci; editId = null; gambarTabs(); gambarForm(); gambarDaftar(); pesan('') })
+    tabs.append(tombol)
+  }
+}
+
+function fieldGambar(nilai, onChange) {
+  const bungkus = el('div', { className: 'grid' })
+  const pratinjau = el('img', { alt: '', style: 'width:150px;height:90px;object-fit:cover;border-radius:8px;background:#0a1726' })
+  if (nilai) pratinjau.src = nilai
+  const url = el('input', { value: nilai || '', placeholder: '/gambar.webp atau /api/media/…' })
+  const berkas = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp' })
+  const pilih = el('select', {})
+  pilih.append(el('option', { value: '', textContent: '— pilih dari koleksi pipa —' }))
+  for (const item of pipeArt) pilih.append(el('option', { value: item.image, textContent: item.name }))
+  const terapkan = (v) => { url.value = v; pratinjau.src = v || ''; onChange(v) }
+  url.addEventListener('input', () => terapkan(url.value))
+  pilih.addEventListener('change', () => { if (pilih.value) terapkan(pilih.value) })
+  berkas.addEventListener('change', async () => {
+    const file = berkas.files[0]
+    if (!file) return
+    pesan('Mengunggah gambar…')
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const hasil = await api('/api/upload', { method: 'POST', body: JSON.stringify({ name: file.name, data: reader.result }) })
+        terapkan(hasil.url)
+        pesan('Gambar terunggah.', 'ok')
+      } catch (error) { pesan(error.message, 'err') }
+    }
+    reader.readAsDataURL(file)
+  })
+  bungkus.append(
+    el('label', {}, 'Alamat gambar', url),
+    el('label', {}, 'Unggah gambar baru', berkas),
+    el('label', {}, 'Atau ambil dari koleksi Hiasan Pipa', pilih),
+    pratinjau
+  )
+  return bungkus
+}
+
+function gambarForm(item = null) {
+  const info = KIND[aktif]
+  $('#judul').textContent = (item ? 'Ubah: ' : 'Tambah: ') + info.label
+  $('#petunjuk').textContent = info.hint
+  const form = $('#form')
+  form.replaceChildren()
+  const nama = el('input', { value: item ? item.name : '', maxlength: 90 })
+  form.append(el('label', {}, aktif === 'jenis' ? 'Nama jenis' : 'Nama', nama))
+  form.dataset.nama = ''
+  form.__nama = nama
+  form.__body = {}
+
+  if (aktif === 'hiasan' || aktif === 'pipa') {
+    form.__body.image = (item && item.body.image) || ''
+    form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }))
+  }
+  if (aktif === 'template') {
+    const body = item ? item.body : {}
+    const kategori = el('select', {})
+    kategori.append(el('option', { value: 'pipa', textContent: 'Perbaikan pipa' }), el('option', { value: 'listrik', textContent: 'Perbaikan listrik' }))
+    kategori.value = body.category || 'pipa'
+    form.__body.category = kategori.value
+    kategori.addEventListener('change', () => { form.__body.category = kategori.value })
+    form.append(el('label', {}, 'Kategori', kategori))
+    form.__body.image = body.image || ''
+    form.append(fieldGambar(form.__body.image, (v) => { form.__body.image = v }))
+    const warna = (body.colors || ['#071c35', '#125071', '#9eecff']).slice()
+    const swatch = el('div', { className: 'swatches' })
+    warna.forEach((w, i) => {
+      const input = el('input', { type: 'color', value: w })
+      input.addEventListener('input', () => { warna[i] = input.value })
+      swatch.append(input)
+    })
+    form.__body.colors = warna
+    form.append(el('label', {}, 'Warna latar (gelap → terang → aksen)', swatch))
+    const animasi = el('input', { type: 'checkbox', checked: body.animation === 'water' })
+    animasi.addEventListener('change', () => { form.__body.animation = animasi.checked ? 'water' : '' })
+    form.__body.animation = body.animation === 'water' ? 'water' : ''
+    form.append(el('label', { className: 'inline' }, animasi, 'Animasi percikan air'))
+  }
+  if (aktif === 'penyebab') {
+    const teks = el('textarea', { rows: 4, value: (item && item.body.text) || '' })
+    teks.addEventListener('input', () => { form.__body.text = teks.value })
+    form.__body.text = (item && item.body.text) || ''
+    form.append(el('label', {}, 'Rincian penyebab (otomatis mengisi kolom rincian di aplikasi)', teks))
+  }
+  if (aktif === 'wilayah') {
+    const daftar = ((item && item.body.items) || []).join('\n')
+    const teks = el('textarea', { rows: 8, value: daftar, placeholder: 'Kelurahan Tidar Utara\nKelurahan Magersari' })
+    form.__body.items = daftar.split('\n').map(s => s.trim()).filter(Boolean)
+    teks.addEventListener('input', () => { form.__body.items = teks.value.split('\n').map(s => s.trim()).filter(Boolean) })
+    form.append(el('label', {}, 'Daftar wilayah (satu per baris)', teks))
+  }
+  editId = item ? item.id : null
+  $('#simpan').textContent = item ? 'Simpan perubahan' : 'Tambah'
+}
+
+function gambarDaftar() {
+  const daftar = $('#daftar')
+  const items = cache[aktif] || []
+  $('#jumlah').textContent = items.length
+  daftar.replaceChildren()
+  if (!items.length) { daftar.append(el('p', { className: 'muted', textContent: 'Belum ada data.' })); return }
+  items.forEach((item, index) => {
+    const baris = el('div', { className: 'item' + (item.enabled ? '' : ' off') })
+    const gambar = item.body && item.body.image
+    if (gambar) baris.append(el('img', { src: gambar, alt: '' }))
+    const nama = el('div', { className: 'nama' })
+    nama.append(el('b', { textContent: item.name }))
+    let kecil = ''
+    if (aktif === 'template') kecil = (item.body.category === 'listrik' ? 'Listrik' : 'Pipa') + ' · ' + (item.body.animation === 'water' ? 'animasi' : 'diam')
+    if (aktif === 'penyebab') kecil = (item.body.text || '(tanpa rincian)').slice(0, 80)
+    if (aktif === 'wilayah') kecil = ((item.body.items || []).length) + ' wilayah'
+    if (kecil) nama.append(el('small', { textContent: kecil }))
+    baris.append(nama)
+    const naik = el('button', { className: 'btn small', textContent: '↑', title: 'Naikkan urutan' })
+    const turun = el('button', { className: 'btn small', textContent: '↓', title: 'Turunkan urutan' })
+    const ubah = el('button', { className: 'btn small', textContent: 'Ubah' })
+    const hapus = el('button', { className: 'btn small danger', textContent: 'Hapus' })
+    naik.addEventListener('click', async () => { await api('/api/items/' + item.id + '/move', { method: 'POST', body: JSON.stringify({ dir: -1 }) }); muat() })
+    turun.addEventListener('click', async () => { await api('/api/items/' + item.id + '/move', { method: 'POST', body: JSON.stringify({ dir: 1 }) }); muat() })
+    ubah.addEventListener('click', () => { gambarForm(item); pesan('') })
+    hapus.addEventListener('click', async () => {
+      if (!confirm('Hapus "' + item.name + '"?')) return
+      try { await api('/api/items/' + item.id, { method: 'DELETE' }); pesan('Dihapus.', 'ok'); muat() }
+      catch (e) { pesan(e.message, 'err') }
+    })
+    baris.append(naik, turun, ubah, hapus)
+    daftar.append(baris)
+  })
+}
+
+$('#simpan').addEventListener('click', async () => {
+  const form = $('#form')
+  const nama = form.__nama.value.trim()
+  if (!nama) { pesan('Nama wajib diisi.', 'err'); return }
+  if ((aktif === 'hiasan' || aktif === 'pipa' || aktif === 'template') && !form.__body.image) {
+    pesan('Pilih atau unggah gambar.', 'err'); return
+  }
+  try {
+    if (editId) {
+      await api('/api/items/' + editId, { method: 'PUT', body: JSON.stringify({ name: nama, body: form.__body }) })
+      pesan('Perubahan tersimpan.', 'ok')
+    } else {
+      await api('/api/items', { method: 'POST', body: JSON.stringify({ kind: aktif, name: nama, body: form.__body }) })
+      pesan('Data ditambahkan.', 'ok')
+    }
+    editId = null
+    await muat()
+  } catch (error) { pesan(error.message, 'err') }
+})
+$('#batal').addEventListener('click', () => { editId = null; gambarForm(); pesan('') })
+
+cekSesi().catch(e => { $('#login-status').textContent = e.message })
+</script>
+</body>
+</html>

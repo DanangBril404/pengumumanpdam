@@ -94,26 +94,17 @@
 </fieldset>
 <div class="preset-section" id="cause-presets">
 <label>Penyebab gangguan<select name="cause"></select></label>
-<div class="preset-actions"><button class="btn" type="button" data-action="new">Tambah penyebab</button><button class="btn" type="button" data-action="edit" disabled>Edit pilihan</button></div>
-<fieldset class="preset-editor" hidden>
-<legend>Edit pilihan penyebab</legend>
-<label>Nama penyebab<input data-field="title" maxlength="85"></label>
-<label>Rincian untuk disimpan<textarea data-field="text" rows="3" maxlength="400"></textarea></label>
-<div class="preset-actions"><button class="btn primary" type="button" data-action="save">Simpan pilihan</button><button class="btn" type="button" data-action="cancel">Batal</button><button class="btn" type="button" data-action="delete">Hapus pilihan</button></div>
-</fieldset><p class="media-status" role="status" hidden></p>
+<p class="hint">Daftar penyebab dan rinciannya diatur lewat halaman admin.</p>
+<p class="media-status" role="status" hidden></p>
 </div>
 <label>Nama instansi<input name="agency" maxlength="48" readonly></label>
 <div class="locations">
 <textarea name="area" maxlength="3000" hidden></textarea>
 <div class="preset-section">
-<label>Pilihan wilayah<select id="area-menu" aria-controls="area-master"><option value="">Pilih menu wilayah</option><option value="master">Master Wilayah Terdampak</option></select></label>
-<div class="preset-actions"><button class="btn" id="new-area-list" type="button">Tambah pilihan wilayah</button><button class="btn" id="clear-areas" type="button">Kosongkan wilayah poster</button></div>
-<fieldset class="preset-editor" id="area-master" hidden>
-<legend id="area-list-label">Master Wilayah Terdampak</legend>
-<label id="area-name-row" hidden>Nama pilihan wilayah<input id="area-list-name" maxlength="85" placeholder="Misalnya, Wilayah Utara"></label>
-<label class="font-field">Daftar wilayah<button class="font-btn" type="button" data-font-for="area" title="Ganti font" aria-label="Ganti font wilayah terdampak">Aa</button><textarea id="area-master-text" rows="6" maxlength="3000" placeholder="Ketik atau tempel daftar, satu nama wilayah per baris"></textarea></label>
-<div class="preset-actions"><button class="btn primary" id="save-area-master" type="button">Simpan dan pakai di poster</button><button class="btn" id="close-area-master" type="button">Tutup</button><button class="btn" id="delete-area-list" type="button" hidden>Hapus pilihan</button></div>
-</fieldset><p class="media-status" id="area-master-status" role="status" hidden></p>
+<label>Pilihan wilayah<select id="area-menu"><option value="">Pilih pilihan wilayah</option></select></label>
+<div class="preset-actions"><button class="btn" id="clear-areas" type="button">Kosongkan wilayah poster</button></div>
+<p class="hint">Daftar pilihan wilayah diatur lewat halaman admin.</p>
+<p class="media-status" id="area-master-status" role="status" hidden></p>
 </div>
 </div>
 <fieldset class="schedule-fields"><legend>Mulai pekerjaan</legend><div class="row"><label>Tanggal mulai<input name="startDate" type="date"></label><label>Jam mulai (WIB)<input name="startTime" type="time"></label></div></fieldset>
@@ -139,4 +130,4 @@
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
 <div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
-<script src="backgrounds.js?v=20261125a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261125h"></script></body></html>
+<script src="backgrounds.js?v=20261126a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261126c"></script></body></html>
