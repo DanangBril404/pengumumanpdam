@@ -94,7 +94,8 @@ let posterScale = 1
 let previewZoom = 100
 /* Ukuran poster: preset + ukuran bebas (lebar & tinggi bisa diatur sendiri). */
 const sizePresets = {
-  portrait: { width: 1080, auto: true, min: 1350, max: 1760 },
+  /* Ukuran tetap: isi poster yang menyesuaikan, bukan ukurannya. */
+  portrait: { width: 1080, height: 1350 },
   square: { width: 1080, height: 1080 },
   story: { width: 1080, height: 1920 },
   custom: { width: 1080 }
@@ -103,8 +104,8 @@ const WIDTH_MIN = 720, WIDTH_MAX = 1620
 const HEIGHT_MIN = 960, HEIGHT_MAX = 2600
 let posterSize = 'portrait'
 let posterWidth = 1080
-let posterHeight = 1920
-let posterHeightAuto = true
+let posterHeight = 1350
+let posterHeightAuto = false
 let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
@@ -755,13 +756,9 @@ function render() {
   let height
   if (posterHeightAuto) {
     height = Math.round((geo.naturalHeight + 48) * width / 1080)
-    if (preset.auto) height = Math.max(preset.min, Math.min(preset.max, height))
   } else {
-    height = Math.round(Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920)))
+    height = Math.round(Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1350)))
   }
-  /* Potret otomatis butuh ruang ekstra untuk foto; ukuran Persegi/Story/Bebas
-     tetap seperti yang dipilih (isi menyesuaikan, bukan ukuran posternya). */
-  if (geo.photoCount && preset.auto) height = Math.max(height, 1920)
   height = Math.max(320, height)
   /* Bila isi desain asli tidak muat, kolom isi dilebarkan (teks melebar, huruf
      menyesuaikan); pada poster lebar blok isi otomatis disusun dua kolom. */
@@ -1205,6 +1202,9 @@ function syncSizeControls() {
   heightAutoInput.checked = posterHeightAuto
   widthValue.textContent = posterWidth + ' px'
   heightValue.textContent = posterHeightAuto ? 'Otomatis' : posterHeight + ' px'
+  /* Preset Potrait/Persegi/Story ukurannya tetap; slider hanya untuk Bebas. */
+  const panel = document.querySelector('.size-custom')
+  if (panel) panel.hidden = posterSize !== 'custom'
 }
 function setPosterSize(size, persist = true) {
   if (!sizePresets[size]) return
@@ -1213,7 +1213,7 @@ function setPosterSize(size, persist = true) {
     posterWidth = preset.width || 1080
     posterHeightAuto = preset.height === undefined
     if (preset.height !== undefined) posterHeight = preset.height
-    else posterHeight = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920))
+    else posterHeight = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1350))
   }
   if (posterSize !== size) {
     blockPositionsByPreset[posterSize] = structuredClone(blockPositions)
@@ -2328,6 +2328,10 @@ if (sizePresets[draft?.posterSize]) posterSize = draft.posterSize
 if (Number.isFinite(draft?.posterWidth)) posterWidth = draft.posterWidth
 if (Number.isFinite(draft?.posterHeight)) posterHeight = draft.posterHeight
 if (typeof draft?.posterHeightAuto === 'boolean') posterHeightAuto = draft.posterHeightAuto
+if (sizePresets[posterSize]?.height !== undefined) {
+  posterHeight = sizePresets[posterSize].height
+  posterHeightAuto = false
+}
 if (!Object.keys(blockPositions).length) applyPresetPositions(posterSize)
 syncSizeChips()
 syncSizeControls()
