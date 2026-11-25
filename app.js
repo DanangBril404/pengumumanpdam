@@ -977,7 +977,7 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
 })
 
 /* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
-const LOGO_PATH = 'logo-perumda.jpg'
+const LOGO_PATH = 'logo-instansi.png?v=20261124k'
 
 function setLogo(image) {
   logo = image
@@ -1836,7 +1836,7 @@ if (customTemplates.some(entry => entry.id === storedTemplate)) selectCustom(sto
 /* Logo paten selalu dipakai; kunci logo lama di browser dibersihkan agar tidak menimpa. */
 storeLocal('kabar-air-logo', null)
 function loadFixedLogo(attempt = 0) {
-  decodeImage(LOGO_PATH + (attempt ? '?retry=' + attempt : '')).then(image => setLogo(image))
+  decodeImage(LOGO_PATH + (attempt ? '&retry=' + attempt : '')).then(image => setLogo(image))
     .catch(() => { if (attempt < 2) setTimeout(() => loadFixedLogo(attempt + 1), 1200) })
 }
 loadFixedLogo()
