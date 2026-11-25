@@ -267,6 +267,7 @@ function registerPosterBlock(id, name, decorative = false) {
   posterWrap.append(handle)
   posterBlocks.set(id, { handle, bounds: null })
   let drag = null
+  let bergerak = false
   function move(x, y) {
     blockPositions[id] = { x: x * 1080 / layoutWidth, y }
     render()
@@ -274,17 +275,21 @@ function registerPosterBlock(id, name, decorative = false) {
   handle.addEventListener('pointerdown', event => {
     const bounds = posterBlocks.get(id).bounds
     if (!bounds || drag || event.button !== 0) return
+    bergerak = false
     drag = { id: event.pointerId, x: event.clientX, y: event.clientY, bounds }
     handle.setPointerCapture(event.pointerId)
   })
   handle.addEventListener('pointermove', event => {
     if (!drag || event.pointerId !== drag.id) return
+    if (Math.abs(event.clientX - drag.x) > 3 || Math.abs(event.clientY - drag.y) > 3) bergerak = true
     const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
     const position = snapPosterPosition(id, drag.bounds.x + (event.clientX - drag.x) * scale,
       drag.bounds.y + (event.clientY - drag.y) * scale, drag.bounds,
       posterBlockLimits(drag.bounds.width, drag.bounds.height))
     move(position.x, position.y)
   })
+  /* Klik (tanpa geser) memilih layer aset ini dan menggulir panel kiri ke kolom editnya. */
+  handle.addEventListener('click', () => { if (!bergerak) pilihAset(id) })
   handle.addEventListener('lostpointercapture', () => {
     drag = null
     clearSnapGuides()
@@ -993,6 +998,7 @@ function update() {
   const count = Number(form.elements.photoLayout.value)
   document.querySelector('#doc-position').hidden = !count
   for (const [index, row] of photoRows.entries()) row.hidden = index >= count
+  showPresetLayouts()
   render()
 }
 
@@ -1216,6 +1222,7 @@ function setPosterSize(size, persist = true) {
   posterSize = size
   syncSizeChips()
   syncSizeControls()
+  showPresetLayouts()
   render()
   if (persist) save()
 }
@@ -1223,18 +1230,18 @@ for (const button of sizeButtons) button.addEventListener('click', () => setPost
 widthInput?.addEventListener('input', () => {
   posterWidth = Number(widthInput.value)
   posterSize = 'custom'
-  syncSizeChips(); syncSizeControls(); render(); save()
+  syncSizeChips(); syncSizeControls(); showPresetLayouts(); render(); save()
 })
 heightInput?.addEventListener('input', () => {
   posterHeight = Number(heightInput.value)
   posterHeightAuto = false
   posterSize = 'custom'
-  syncSizeChips(); syncSizeControls(); render(); save()
+  syncSizeChips(); syncSizeControls(); showPresetLayouts(); render(); save()
 })
 heightAutoInput?.addEventListener('change', () => {
   posterHeightAuto = heightAutoInput.checked
   posterSize = 'custom'
-  syncSizeChips(); syncSizeControls(); render(); save()
+  syncSizeChips(); syncSizeControls(); showPresetLayouts(); render(); save()
 })
 
 /* Zoom pratinjau desain (Pantau Desain) */
@@ -1549,9 +1556,43 @@ function showLayerPanel() {
   syncLayerSize()
 }
 
+/* Kolom form yang menjadi tujuan gulir saat sebuah aset dipilih di poster. */
+const kolomEdit = {
+  title: 'type', extra: 'customTitle', cause: 'cause', schedule: 'startDate',
+  areas: 'area', advice: 'adviceTitle', photos: 'photoLayout'
+}
+/* Wilayah memakai textarea tersembunyi; tujuan gulirnya wadah editor wilayah. */
+const wadahEdit = { areas: '.locations' }
+
+function pilihAset(id) {
+  if (!id) return
+  selectedDecorationId = id
+  showLayerPanel()
+  const baris = [...layerList.children].find(row => row.dataset.id === id)
+  baris?.scrollIntoView({ block: 'nearest' })
+  let wadah = wadahEdit[id] ? document.querySelector(wadahEdit[id]) : null
+  if (!wadah) {
+    const namaKolom = kolomEdit[id]
+    const target = namaKolom ? form.elements[namaKolom] : null
+    wadah = target?.closest('label') || target?.closest('fieldset') || target
+    if (wadah && !wadah.getClientRects().length) {
+      wadah = wadah.closest('.preset-section, .locations, fieldset, .design-controls') || wadah.parentElement
+    }
+  }
+  if (!wadah && (decorationLayers.some(layer => layer.id === id) || id === 'logo')) {
+    wadah = document.querySelector('#ornament-gallery')
+  }
+  if (wadah) {
+    wadah.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    wadah.classList.add('sorot-kolom')
+    setTimeout(() => wadah.classList.remove('sorot-kolom'), 1500)
+  }
+}
+
 function addLayerRow(id, name, layer) {
   const row = document.createElement('div')
   row.className = 'layer-row'
+  row.dataset.id = id
   row.dataset.selected = String(selectedDecorationId === id)
   const bisaAtur = !!layer || Object.hasOwn(movableLabels, id) || asetBerkotak.has(id)
   const title = document.createElement(bisaAtur ? 'button' : 'span')
@@ -1560,11 +1601,7 @@ function addLayerRow(id, name, layer) {
   if (bisaAtur) {
     title.type = 'button'
     title.setAttribute('aria-label', 'Atur skala ' + name)
-    title.addEventListener('click', () => {
-      selectedDecorationId = id
-      showLayerPanel()
-      if (!lockedLayers.has(id)) layerWidth.focus()
-    })
+    title.addEventListener('click', () => pilihAset(id))
   }
   const toggle = document.createElement('button')
   toggle.className = 'layer-action icon-button'
@@ -1787,6 +1824,124 @@ savedLayoutSelect.addEventListener('change', () => {
   applyLayoutButton.disabled = !savedLayoutSelect.value
 })
 
+/* ---------- Tatanan tersimpan per ukuran poster & jumlah foto ---------- */
+const presetLayoutList = document.querySelector('#preset-layout-list')
+const presetLayoutStatus = document.querySelector('#preset-layout-status')
+const labelUkuran = { portrait: 'Potrait', square: 'Persegi', story: 'Story', custom: 'Bebas' }
+let tatananAktifId = ''
+
+function jumlahFotoAktif() {
+  return Number(form.elements.photoLayout.value) || 0
+}
+
+function buatTatanan(name, id = buatId()) {
+  return {
+    id, name, template, size: posterSize, photos: jumlahFotoAktif(),
+    photoLayout: form.elements.photoLayout.value,
+    positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
+    sizes: structuredClone(blockSizes), hidden: [...hiddenLayers],
+    photo: [form.elements.docX.value, form.elements.docY.value]
+  }
+}
+
+function tatananUntuk(size = posterSize, foto = jumlahFotoAktif()) {
+  return savedLayouts.filter(item => (item.size || 'portrait') === size && Number(item.photos || 0) === foto)
+}
+
+function statusTatanan(message) {
+  presetLayoutStatus.textContent = message
+  presetLayoutStatus.hidden = !message
+}
+
+function showPresetLayouts() {
+  const daftar = tatananUntuk()
+  presetLayoutList.replaceChildren()
+  daftar.forEach((item, index) => {
+    const kotak = document.createElement('div')
+    kotak.className = 'preset-layout-item'
+    kotak.dataset.active = String(item.id === tatananAktifId)
+    const pakai = document.createElement('button')
+    pakai.type = 'button'
+    pakai.textContent = String(index + 1)
+    pakai.title = 'Pakai tatanan ' + (index + 1) + ' — ' + (item.name || 'tanpa nama')
+    pakai.setAttribute('aria-label', pakai.title)
+    pakai.addEventListener('click', () => pakaiTatanan(item.id))
+    const hapus = document.createElement('button')
+    hapus.type = 'button'
+    hapus.className = 'hapus'
+    hapus.textContent = '×'
+    hapus.title = 'Hapus tatanan ' + (index + 1)
+    hapus.setAttribute('aria-label', hapus.title)
+    hapus.addEventListener('click', () => hapusTatanan(item.id))
+    kotak.append(pakai, hapus)
+    presetLayoutList.append(kotak)
+  })
+  if (!daftar.length) {
+    const kosong = document.createElement('span')
+    kosong.className = 'hint'
+    kosong.textContent = 'Belum ada tatanan untuk ' + labelUkuran[posterSize] +
+      (jumlahFotoAktif() ? ' dengan ' + jumlahFotoAktif() + ' foto.' : ' tanpa foto.')
+    presetLayoutList.append(kosong)
+  }
+}
+
+async function pakaiTatanan(id) {
+  const layout = savedLayouts.find(item => item.id === id)
+  if (!layout) return
+  if (layout.size && sizePresets[layout.size] && layout.size !== posterSize) setPosterSize(layout.size, false)
+  for (const layer of decorationLayers) {
+    posterBlocks.get(layer.id)?.handle.remove()
+    posterBlocks.delete(layer.id)
+  }
+  blockPositions = structuredClone(layout.positions)
+  decorationLayers = structuredClone(layout.layers)
+  selectedDecorationId = decorationLayers.at(-1)?.id
+  hiddenLayers.clear()
+  for (const tersembunyi of layout.hidden || []) hiddenLayers.add(tersembunyi)
+  for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
+  blockSizes = layout.sizes && typeof layout.sizes === 'object' ? structuredClone(layout.sizes) : {}
+  storeLocal(blockSizeKey, blockSizes)
+  if (layout.photoLayout !== undefined) form.elements.photoLayout.value = String(layout.photoLayout)
+  ;[form.elements.docX.value, form.elements.docY.value] = Array.isArray(layout.photo) ? layout.photo : ['', '']
+  tatananAktifId = id
+  showLayerPanel()
+  update()
+  if (Object.hasOwn(backdrops, layout.template)) selectBuiltin(layout.template)
+  else if (customTemplates.some(entry => entry.id === layout.template)) await selectCustom(layout.template)
+  else { update(); save() }
+  for (const layer of decorationLayers) if (!hiddenLayers.has(layer.id)) loadDecorationLayer(layer)
+  save()
+  showPresetLayouts()
+  statusTatanan('Tatanan diterapkan ke pengumuman ini.')
+}
+
+function hapusTatanan(id) {
+  const next = savedLayouts.filter(item => item.id !== id)
+  if (!storeLocal(savedLayoutsKey, next)) return
+  savedLayouts = next
+  if (tatananAktifId === id) tatananAktifId = ''
+  showPresetLayouts()
+  showSavedLayouts()
+  statusTatanan('Tatanan dihapus.')
+}
+
+document.querySelector('#save-preset-layout').addEventListener('click', () => {
+  const nomor = tatananUntuk().length + 1
+  const foto = jumlahFotoAktif()
+  const layout = buatTatanan('Tatanan ' + nomor + ' — ' + labelUkuran[posterSize] + (foto ? ' (' + foto + ' foto)' : ''))
+  const next = [...savedLayouts, layout]
+  if (!storeLocal(savedLayoutsKey, next)) {
+    statusTatanan('Penyimpanan browser penuh. Hapus tatanan lama terlebih dahulu.')
+    return
+  }
+  savedLayouts = next
+  tatananAktifId = layout.id
+  showPresetLayouts()
+  showSavedLayouts(layout.id)
+  statusTatanan('Tatanan ' + nomor + ' tersimpan untuk ' + labelUkuran[posterSize] +
+    (foto ? ' dengan ' + foto + ' foto.' : ' tanpa foto.'))
+})
+
 document.querySelector('#save-layout').addEventListener('click', () => {
   const name = layoutName.value.trim()
   if (!name) {
@@ -1795,40 +1950,20 @@ document.querySelector('#save-layout').addEventListener('click', () => {
     return
   }
   const existing = savedLayouts.find(item => item.name.toLocaleLowerCase('id') === name.toLocaleLowerCase('id'))
-  const photo = [form.elements.docX.value, form.elements.docY.value]
-  const layout = {
-    id: existing?.id ?? buatId(), name, template,
-    positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
-    sizes: structuredClone(blockSizes), hidden: [...hiddenLayers], photo
-  }
+  const layout = buatTatanan(name, existing?.id ?? buatId())
   const next = existing ? savedLayouts.map(item => item.id === layout.id ? layout : item) : [...savedLayouts, layout]
   if (!storeLocal(savedLayoutsKey, next)) return
   savedLayouts = next
+  tatananAktifId = layout.id
   showSavedLayouts(layout.id)
+  showPresetLayouts()
   showLayoutStatus('Posisi dan layer tersimpan di browser ini.')
 })
 
 applyLayoutButton.addEventListener('click', async () => {
-  const layout = savedLayouts.find(item => item.id === savedLayoutSelect.value)
-  if (!layout) return
-  for (const layer of decorationLayers) {
-    posterBlocks.get(layer.id).handle.remove()
-    posterBlocks.delete(layer.id)
-  }
-  blockPositions = structuredClone(layout.positions)
-  decorationLayers = structuredClone(layout.layers)
-  selectedDecorationId = decorationLayers.at(-1)?.id
-  hiddenLayers.clear()
-  for (const id of layout.hidden) hiddenLayers.add(id)
-  for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
-  ;[form.elements.docX.value, form.elements.docY.value] = layout.photo
-  blockSizes = layout.sizes && typeof layout.sizes === 'object' ? structuredClone(layout.sizes) : {}
-  storeLocal(blockSizeKey, blockSizes)
-  showLayerPanel()
-  if (Object.hasOwn(backdrops, layout.template)) selectBuiltin(layout.template)
-  else if (customTemplates.some(entry => entry.id === layout.template)) await selectCustom(layout.template)
-  else { update(); save() }
-  for (const layer of decorationLayers) if (!hiddenLayers.has(layer.id)) loadDecorationLayer(layer)
+  const id = savedLayoutSelect.value
+  if (!id) return
+  await pakaiTatanan(id)
   showLayoutStatus('Tata letak diterapkan ke pengumuman ini.')
 })
 
@@ -1938,13 +2073,16 @@ function moveDocumentation(x, y) {
   render()
 }
 
+let fotoBergerak = false
 photoDrag.addEventListener('pointerdown', event => {
   if (!docBounds || documentationDrag || event.button !== 0) return
+  fotoBergerak = false
   documentationDrag = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY, ...docBounds }
   photoDrag.setPointerCapture(event.pointerId)
 })
 photoDrag.addEventListener('pointermove', event => {
   if (!documentationDrag || documentationDrag.id !== event.pointerId) return
+  if (Math.abs(event.clientX - documentationDrag.clientX) > 3 || Math.abs(event.clientY - documentationDrag.clientY) > 3) fotoBergerak = true
   const scale = canvas.width / (canvas.getBoundingClientRect().width * posterScale)
   const position = snapPosterPosition('photos',
     documentationDrag.x + (event.clientX - documentationDrag.clientX) * scale,
@@ -1958,6 +2096,7 @@ photoDrag.addEventListener('lostpointercapture', () => {
   clearSnapGuides()
   save()
 })
+photoDrag.addEventListener('click', () => { if (!fotoBergerak) pilihAset('photos') })
 photoDrag.addEventListener('keydown', event => {
   const direction = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[event.key]
   if (!direction || !docBounds) return
