@@ -75,13 +75,16 @@
 .preset-layouts{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 20px 0}
 .preset-layouts-label{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
 .preset-layout-list{display:flex;gap:6px;flex-wrap:wrap}
-.preset-layout-item{display:inline-flex;align-items:stretch;border:1px solid var(--line);border-radius:999px;background:white;overflow:hidden}
-.preset-layout-item button{border:0;background:transparent;padding:5px 11px;font:800 13px 'DM Sans',system-ui;line-height:1.2}
-.preset-layout-item button:hover{background:#edf4ff}
-.preset-layout-item .hapus{padding:5px 8px;color:#b3261e;border-left:1px solid var(--line)}
+.preset-layout-item{border:1px solid var(--line);background:white;border-radius:999px;min-width:34px;padding:5px 11px;font:800 13px 'DM Sans',system-ui;line-height:1.2}
+.preset-layout-item:hover{background:#edf4ff}
 .preset-layout-item[data-active="true"]{background:var(--blue);border-color:var(--blue);color:#fff}
-.preset-layout-item[data-active="true"] .hapus{color:#fff;border-left-color:#ffffff55}
 .preset-layouts .media-status{flex:1 1 100%;margin:0}
+.tatanan-menu{position:relative}
+.tatanan-menu summary{list-style:none;cursor:pointer}
+.tatanan-menu summary::-webkit-details-marker{display:none}
+.tatanan-menu[open] .tatanan-panel{position:absolute;left:0;top:calc(100% + 8px);z-index:12;width:min(330px,82vw);background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 14px 34px #081d3e26;display:grid;gap:7px}
+.tatanan-baris{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:700}
+.tatanan-baris .btn{padding:4px 9px;font-size:12px}
 .sorot-kolom{outline:3px solid #6badff;outline-offset:4px;border-radius:8px;transition:outline-color .3s}
 </style>
 </head>
@@ -157,7 +160,7 @@
 <div class="row"><label><span class="sr">Nama tata letak</span><input id="layout-name" maxlength="70" placeholder="Nama tata letak"></label><button class="btn" id="save-layout" type="button">Simpan posisi</button></div>
 <div class="row"><label><span class="sr">Pilih tata letak tersimpan</span><select id="saved-layouts"><option value="">Pilih tata letak</option></select></label><button class="btn" id="apply-layout" type="button" disabled>Pakai</button></div>
 <p class="media-status" id="layout-status" role="status" hidden></p>
-</div></details></div><div class="preset-layouts"><span class="preset-layouts-label">Tatanan</span><div class="preset-layout-list" id="preset-layout-list"></div><button class="btn" id="save-preset-layout" type="button" title="Simpan tatanan untuk ukuran & jumlah foto saat ini">＋ Simpan tatanan</button><p class="media-status" id="preset-layout-status" role="status" hidden></p></div><div class="preview-workspace"><div class="stage"><div class="poster-wrap" id="poster-wrap"><canvas width="1080" height="1080" id="poster" role="img" aria-label="Pratinjau pengumuman aliran air"></canvas><i class="snap-guide" id="snap-x" aria-hidden="true" hidden></i><i class="snap-guide" id="snap-y" aria-hidden="true" hidden></i><button id="photo-drag" type="button" aria-label="Pindahkan foto dokumentasi dengan menarik atau tombol panah" hidden></button>
+</div></details></div><div class="preset-layouts"><span class="preset-layouts-label">Tatanan</span><div class="preset-layout-list" id="preset-layout-list"></div><button class="btn" id="save-preset-layout" type="button" title="Simpan tatanan untuk ukuran & jumlah foto saat ini">＋ Simpan tatanan</button><details class="tatanan-menu" id="tatanan-menu"><summary class="btn icon-btn" title="Setelan tatanan — hapus" aria-label="Setelan tatanan">⚙</summary><div class="tatanan-panel" id="tatanan-panel"></div></details><p class="media-status" id="preset-layout-status" role="status" hidden></p></div><div class="preview-workspace"><div class="stage"><div class="poster-wrap" id="poster-wrap"><canvas width="1080" height="1080" id="poster" role="img" aria-label="Pratinjau pengumuman aliran air"></canvas><i class="snap-guide" id="snap-x" aria-hidden="true" hidden></i><i class="snap-guide" id="snap-y" aria-hidden="true" hidden></i><button id="photo-drag" type="button" aria-label="Pindahkan foto dokumentasi dengan menarik atau tombol panah" hidden></button>
 <button id="banner-drag" type="button" aria-label="Geser foto banner dengan menarik atau tombol panah" hidden></button><div class="spray" id="repair-spray" aria-hidden="true" hidden><i style="--x:77%;--delay:0s"></i><i style="--x:80%;--delay:.37s"></i><i style="--x:83%;--delay:.8s"></i></div></div></div><aside class="layer-panel" aria-label="Layer poster"><h3>Layer</h3><div class="layer-list" id="layer-list"></div></aside></div>
 <div class="layer-size-tools" id="layer-size-tools"><span class="layer-size-name" id="layer-size-name">Ukuran kotak aset terpilih</span><label class="size-field"><span>Lebar <output id="layer-width-value" for="layer-width">100%</output></span><input id="layer-width" type="range" min="30" max="220" step="1" value="100" aria-label="Lebar kotak aset terpilih"></label><label class="size-field"><span>Tinggi <output id="layer-height-value" for="layer-height">100%</output></span><input id="layer-height" type="range" min="30" max="220" step="1" value="100" aria-label="Tinggi kotak aset terpilih"></label><button class="btn icon-btn" id="reset-layer-size" type="button" title="Kembalikan ukuran kotak ke 100%" aria-label="Kembalikan ukuran kotak ke 100%">⟲</button><p class="hint" id="layer-size-hint">Pilih aset di panel Layer. Lebar/Tinggi hanya mengubah kotak aset — huruf dan ukurannya tetap.</p></div>
 <div class="tools"><label class="motion" id="motion-control" hidden><input id="motion" type="checkbox" checked>Animasi pratinjau</label><div class="actions"><button class="btn" type="button" id="copy">Salin teks</button><button class="btn" type="button" id="download-video" title="Video 1080 × 1920 px (9:16) dengan backsound">Unduh Video</button><button class="btn primary" type="button" id="download">Unduh PNG</button></div></div>
@@ -165,4 +168,4 @@
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
 <div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
-<script src="backgrounds.js?v=20261128c"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261128c"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261130i"></script></body></html>
+<script src="backgrounds.js?v=20261128c"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261128c"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261130j"></script></body></html>

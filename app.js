@@ -1857,28 +1857,22 @@ function statusTatanan(message) {
   presetLayoutStatus.hidden = !message
 }
 
+const TATANAN_MAKS = 5
+const tatananPanel = document.querySelector('#tatanan-panel')
+
 function showPresetLayouts() {
   const daftar = tatananUntuk()
   presetLayoutList.replaceChildren()
   daftar.forEach((item, index) => {
-    const kotak = document.createElement('div')
-    kotak.className = 'preset-layout-item'
-    kotak.dataset.active = String(item.id === tatananAktifId)
     const pakai = document.createElement('button')
     pakai.type = 'button'
+    pakai.className = 'preset-layout-item'
     pakai.textContent = String(index + 1)
     pakai.title = 'Pakai tatanan ' + (index + 1) + ' — ' + (item.name || 'tanpa nama')
+    pakai.dataset.active = String(item.id === tatananAktifId)
     pakai.setAttribute('aria-label', pakai.title)
     pakai.addEventListener('click', () => pakaiTatanan(item.id))
-    const hapus = document.createElement('button')
-    hapus.type = 'button'
-    hapus.className = 'hapus'
-    hapus.textContent = '×'
-    hapus.title = 'Hapus tatanan ' + (index + 1)
-    hapus.setAttribute('aria-label', hapus.title)
-    hapus.addEventListener('click', () => hapusTatanan(item.id))
-    kotak.append(pakai, hapus)
-    presetLayoutList.append(kotak)
+    presetLayoutList.append(pakai)
   })
   if (!daftar.length) {
     const kosong = document.createElement('span')
@@ -1887,6 +1881,47 @@ function showPresetLayouts() {
       (jumlahFotoAktif() ? ' dengan ' + jumlahFotoAktif() + ' foto.' : ' tanpa foto.')
     presetLayoutList.append(kosong)
   }
+  showTatananMenu(daftar)
+  const tombolSimpan = document.querySelector('#save-preset-layout')
+  if (tombolSimpan) tombolSimpan.title = daftar.length >= TATANAN_MAKS
+    ? 'Sudah 5 tatanan — hapus salah satu lewat tombol ⚙'
+    : 'Simpan tatanan untuk ukuran & jumlah foto saat ini'
+}
+
+/* Panel setelan ⚙: daftar tatanan + tombol hapus (dengan konfirmasi). */
+function showTatananMenu(daftar) {
+  if (!tatananPanel) return
+  tatananPanel.replaceChildren()
+  const judul = document.createElement('p')
+  judul.className = 'hint'
+  judul.textContent = 'Tatanan ' + labelUkuran[posterSize] +
+    (jumlahFotoAktif() ? ' · ' + jumlahFotoAktif() + ' foto' : ' · tanpa foto')
+  tatananPanel.append(judul)
+  if (!daftar.length) {
+    const kosong = document.createElement('p')
+    kosong.className = 'hint'
+    kosong.textContent = 'Belum ada tatanan tersimpan untuk dihapus.'
+    tatananPanel.append(kosong)
+    return
+  }
+  daftar.forEach((item, index) => {
+    const baris = document.createElement('div')
+    baris.className = 'tatanan-baris'
+    const nama = document.createElement('span')
+    nama.textContent = 'Tatanan ' + (index + 1)
+    const hapus = document.createElement('button')
+    hapus.type = 'button'
+    hapus.className = 'btn small danger'
+    hapus.textContent = 'Hapus'
+    hapus.addEventListener('click', () => {
+      const boleh = confirm('Yakin akan menghapus Tatanan ' + (index + 1) + ' untuk ' + labelUkuran[posterSize] +
+        (jumlahFotoAktif() ? ' dengan ' + jumlahFotoAktif() + ' foto' : ' tanpa foto') + '?')
+      if (!boleh) return
+      hapusTatanan(item.id)
+    })
+    baris.append(nama, hapus)
+    tatananPanel.append(baris)
+  })
 }
 
 async function pakaiTatanan(id) {
@@ -1930,8 +1965,14 @@ function hapusTatanan(id) {
 }
 
 document.querySelector('#save-preset-layout').addEventListener('click', () => {
-  const nomor = tatananUntuk().length + 1
+  const daftar = tatananUntuk()
   const foto = jumlahFotoAktif()
+  if (daftar.length >= TATANAN_MAKS) {
+    statusTatanan('Maksimal ' + TATANAN_MAKS + ' tatanan untuk ' + labelUkuran[posterSize] +
+      (foto ? ' dengan ' + foto + ' foto' : ' tanpa foto') + '. Hapus salah satu lewat tombol ⚙.')
+    return
+  }
+  const nomor = daftar.length + 1
   const layout = buatTatanan('Tatanan ' + nomor + ' — ' + labelUkuran[posterSize] + (foto ? ' (' + foto + ' foto)' : ''))
   const next = [...savedLayouts, layout]
   if (!storeLocal(savedLayoutsKey, next)) {
