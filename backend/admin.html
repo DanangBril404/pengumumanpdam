@@ -274,6 +274,7 @@ function formIdentitas(form) {
   form.__nama = nama
   form.__logos = (settings.logos || []).map(item => ({ ...item }))
   form.__logo = settings.logo || ''
+  form.__logosClear = false
 
   const galeri = el('div', { className: 'item-list' })
   const info = el('p', { className: 'hint' })
@@ -303,6 +304,7 @@ function formIdentitas(form) {
       hapus.addEventListener('click', () => {
         if (!confirm('Hapus logo "' + (item.name || 'ini') + '" dari pustaka?')) return
         form.__logos.splice(index, 1)
+        form.__logosClear = form.__logos.length === 0
         if (form.__logo === item.url) form.__logo = form.__logos[0] ? form.__logos[0].url : ''
         gambarGaleri()
         pesan('Logo dihapus dari daftar. Tekan Simpan.', 'ok')
@@ -347,6 +349,7 @@ function formVideo(form) {
   form.__audios = (settings.audios || []).map(item => ({ ...item }))
   form.__backsound = settings.backsound || ''
   form.__backsoundName = settings.backsoundName || ''
+  form.__audiosClear = false
   const daftar = el('div', { className: 'item-list' })
   const info = el('p', { className: 'hint' })
   const berkas = el('input', { type: 'file', accept: 'audio/mpeg,audio/mp3,audio/mp4,audio/x-m4a,audio/wav,audio/ogg' })
@@ -377,6 +380,7 @@ function formVideo(form) {
       hapus.addEventListener('click', () => {
         if (!confirm('Hapus MP3 "' + (item.name || 'ini') + '" dari pustaka?')) return
         form.__audios.splice(index, 1)
+        form.__audiosClear = form.__audios.length === 0
         if (form.__backsound === item.url) {
           form.__backsound = ''
           form.__backsoundName = ''
@@ -539,10 +543,13 @@ $('#simpan').addEventListener('click', async () => {
         ? {
             name: (form.__nama.value || '').trim(),
             logo: form.__logo || '',
-            logos: form.__logos || []
+            logos: form.__logos || [],
+            logosClear: !!form.__logosClear,
+            logoClear: !!form.__logosClear && !form.__logo
           }
         : {
             audios: form.__audios || [],
+            audiosClear: !!form.__audiosClear,
             backsound: form.__backsound || '',
             backsoundName: form.__backsoundName || ''
           }

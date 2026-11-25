@@ -358,18 +358,26 @@ def settings_tulis(data):
         nama = data['name'].strip()
         sekarang['name'] = nama or 'Perumda Air Minum Kota Magelang'
     if 'logos' in data:
-        sekarang['logos'] = _daftar_media(data.get('logos'), MAKS_LOGO_FILES)
-        sekarang['logosInit'] = True
+        # Daftar kosong hanya diterapkan bila klien memang berniat mengosongkan
+        # (logosClear). Tanpa itu, simpanan dari tab lama / data yang belum termuat
+        # tidak boleh menghapus pustaka logo yang sudah ada.
+        baru = _daftar_media(data.get('logos'), MAKS_LOGO_FILES)
+        if baru or data.get('logosClear'):
+            sekarang['logos'] = baru
+            sekarang['logosInit'] = True
     if 'audios' in data:
-        sekarang['audios'] = _daftar_media(data.get('audios'), MAKS_AUDIO_FILES)
-        sekarang['audiosInit'] = True
+        baru = _daftar_media(data.get('audios'), MAKS_AUDIO_FILES)
+        if baru or data.get('audiosClear'):
+            sekarang['audios'] = baru
+            sekarang['audiosInit'] = True
     if isinstance(data.get('logo'), str):
         logo = _bersih_media(data['logo'])
-        sekarang['logo'] = logo
-        if logo and not any(item['url'] == logo for item in sekarang['logos']) \
-                and len(sekarang['logos']) < MAKS_LOGO_FILES:
-            sekarang['logos'].insert(0, {'url': logo,
-                                         'name': _nama_dari_berkas(os.path.basename(urllib_unquote(logo)))})
+        if logo or data.get('logoClear'):
+            sekarang['logo'] = logo
+            if logo and not any(item['url'] == logo for item in sekarang['logos']) \
+                    and len(sekarang['logos']) < MAKS_LOGO_FILES:
+                sekarang['logos'].insert(0, {'url': logo,
+                                             'name': _nama_dari_berkas(os.path.basename(urllib_unquote(logo)))})
     if isinstance(data.get('backsound'), str):
         backsound = _bersih_media(data['backsound'])
         sekarang['backsound'] = backsound
