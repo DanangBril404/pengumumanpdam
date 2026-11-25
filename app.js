@@ -121,6 +121,27 @@ try { draft = JSON.parse(localStorage.getItem(storageKey)) } catch {}
 fonts = draft?.fonts && typeof draft.fonts === 'object' ? { ...draft.fonts } : {}
 baseColor = typeof draft?.baseColor === 'string' ? draft.baseColor : ''
 let blockPositions = draft?.blockPositions || {}
+/* Posisi awal tiap preset. `square` = susunan tetap Master (dua kolom: rincian/jadwal/imbauan
+   di kiri, wilayah terdampak di kanan). Nilai x dalam ruang 1080, y dalam satuan logika render. */
+const presetPositions = {
+  square: {
+    cause: { x: 57, y: 590 },
+    schedule: { x: 57, y: 807 },
+    areas: { x: 571, y: 635 },
+    advice: { x: 56, y: 1048 }
+  }
+}
+let blockPositionsByPreset = draft?.blockPositionsByPreset && typeof draft.blockPositionsByPreset === 'object'
+  ? draft.blockPositionsByPreset : {}
+function applyPresetPositions(size) {
+  const saved = blockPositionsByPreset[size] ?? presetPositions[size] ?? {}
+  blockPositions = structuredClone(saved)
+}
+/* Atur ulang: buang geseran pengguna, kembali ke posisi awal bawaan preset. */
+function resetPresetPositions(size) {
+  delete blockPositionsByPreset[size]
+  blockPositions = structuredClone(presetPositions[size] || {})
+}
 const hiddenLayers = new Set(draft?.hiddenLayers || [])
 const decorationNames = {
   waves: 'Kran Krom & Arus Air', ripples: 'Menara Air & Katup', drops: 'Percikan Air Jernih',
@@ -839,7 +860,7 @@ function announcement(f) {
 }
 
 function save() {
-  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize, posterWidth, posterHeight, posterHeightAuto })) } catch {}
+  try { localStorage.setItem(storageKey, JSON.stringify({ values: fields(), template, editableCauses: true, blockPositions, blockPositionsByPreset: { ...blockPositionsByPreset, [posterSize]: blockPositions }, magnetEnabled, decorationLayers, hiddenLayers: [...hiddenLayers], fonts, baseColor, posterSize, posterWidth, posterHeight, posterHeightAuto })) } catch {}
 }
 
 function update() {
@@ -1151,6 +1172,10 @@ function setPosterSize(size, persist = true) {
     posterHeightAuto = preset.height === undefined
     if (preset.height !== undefined) posterHeight = preset.height
     else posterHeight = Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920))
+  }
+  if (posterSize !== size) {
+    blockPositionsByPreset[posterSize] = structuredClone(blockPositions)
+    applyPresetPositions(size)
   }
   posterSize = size
   syncSizeChips()
@@ -1906,14 +1931,14 @@ for (const [index, input] of photoInputs.entries()) {
 }
 
 document.querySelector('#reset-poster-positions').addEventListener('click', () => {
-  blockPositions = {}
+  resetPresetPositions(posterSize)
   form.elements.docX.value = form.elements.docY.value = ''
   render()
   save()
 })
 
 document.querySelector('#reset').addEventListener('click', () => {
-  blockPositions = {}
+  resetPresetPositions(posterSize)
   populate(example)
   areaMenu.value = ''
   areaMaster.hidden = true
@@ -1979,6 +2004,7 @@ if (sizePresets[draft?.posterSize]) posterSize = draft.posterSize
 if (Number.isFinite(draft?.posterWidth)) posterWidth = draft.posterWidth
 if (Number.isFinite(draft?.posterHeight)) posterHeight = draft.posterHeight
 if (typeof draft?.posterHeightAuto === 'boolean') posterHeightAuto = draft.posterHeightAuto
+if (!Object.keys(blockPositions).length) applyPresetPositions(posterSize)
 syncSizeChips()
 syncSizeControls()
 const storedTemplate = draft?.template || defaultTemplate
