@@ -695,7 +695,10 @@ function render() {
   if (canvas.height !== height) canvas.height = height
   const zoom = previewZoom / 100
   const lebarMaks = (570 * width / 1080 * zoom).toFixed(0) + 'px'
-  const tinggiMaks = (width * 65 / height * zoom).toFixed(1) + 'vh'
+  const gayaStage = getComputedStyle(stageEl)
+  const padStage = parseFloat(gayaStage.paddingTop) + parseFloat(gayaStage.paddingBottom)
+  const ruangTinggi = Math.max(240, window.innerHeight - stageEl.getBoundingClientRect().top - padStage - 10)
+  const tinggiMaks = Math.round(ruangTinggi * width / height * zoom) + 'px'
   posterWrap.style.width = zoom > 1 ? 'min(' + lebarMaks + ', ' + tinggiMaks + ')' : 'min(100%, ' + lebarMaks + ', ' + tinggiMaks + ')'
   repairSpray.style.setProperty('--spray-top', (429 * posterScale / height * 100) + '%')
   motionControl.hidden = !animate
@@ -1717,8 +1720,11 @@ document.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape') tutupFontMenu()
 })
+let resizeTimer = 0
 window.addEventListener('resize', () => {
   if (!fontMenu.hidden) tutupFontMenu()
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => render(), 160)
 })
 syncFontButtons()
 
@@ -1805,24 +1811,8 @@ document.querySelector('#reset-poster-positions').addEventListener('click', () =
   save()
 })
 
-document.querySelector('#reset').addEventListener('click', () => {
-  resetPresetPositions(posterSize)
-  populate(example)
-  areaMenu.value = ''
-  showAreaMasterStatus('')
-  manualImage = null
-  baseColor = ''
-  baseColorInput.value = '#0b2c4d'
-  for (const [index, button] of removePhotos.entries()) {
-    photos[index] = null
-    photoRevisions[index] += 1
-    button.hidden = true
-  }
-  mediaStatus.textContent = ''
-  selectBuiltin(defaultTemplate)
-  showLayerPanel()
-  status.textContent = 'Contoh dimuat. Ganti datanya sebelum dibagikan.'
-})
+/* Tombol “Muat contoh” dihapus dari header sesuai permintaan Master. */
+
 
 document.querySelector('#download').addEventListener('click', async () => {
   const requestedTemplate = template

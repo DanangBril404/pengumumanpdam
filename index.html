@@ -47,14 +47,33 @@
 .font-menu small{font-size:11px;color:var(--muted)}
 .font-menu button[aria-checked="true"] small{color:#ffffffcc}
 
-.size-chips{display:flex;gap:6px;flex-wrap:wrap}.size-custom{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;flex-basis:100%;padding:2px 0 2px}.size-field{display:grid;gap:2px;font-size:12px;font-weight:700;color:var(--muted);flex:1 1 150px;min-width:140px}.size-field span{display:flex;justify-content:space-between;gap:6px}.size-field output{color:var(--ink);font-weight:800;font-size:12px;white-space:nowrap}.size-field input[type=range]{width:100%;margin:0;padding:0;background:none;border:0;accent-color:var(--blue)}.size-field input[type=range]:disabled{opacity:.45}.size-auto{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:2px}.size-auto input{width:auto;margin:0;accent-color:var(--blue)}.chip{border:1px solid var(--line);background:white;border-radius:999px;padding:6px 13px;font-size:13px;font-weight:700;line-height:1.1}.chip:hover{background:#edf4ff}.chip[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}.poster-tools{padding:10px 20px 4px;gap:8px}.icon-btn{min-width:34px;padding:6px 9px;font-size:15px;line-height:1;display:inline-grid;place-items:center}.layout-menu{padding:0;border:0;font-size:14px;position:relative}.layout-menu summary{list-style:none;cursor:pointer}.layout-menu summary::-webkit-details-marker{display:none}.layout-menu[open] .layout-fields{position:absolute;right:0;top:calc(100% + 8px);z-index:9;width:min(320px,78vw);background:white;border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 14px 34px #081d3e26}.layout-fields{padding-top:0}
+.size-chips{display:flex;gap:6px;flex-wrap:wrap}.size-custom{display:flex;gap:8px;align-items:flex-end;flex-wrap:nowrap;flex:1 1 auto;min-width:0;padding:2px 0}.size-field{display:grid;gap:2px;font-size:12px;font-weight:700;color:var(--muted);flex:1 1 150px;min-width:140px}.size-field span{display:flex;justify-content:space-between;gap:6px}.size-field output{color:var(--ink);font-weight:800;font-size:12px;white-space:nowrap}.size-field input[type=range]{width:100%;margin:0;padding:0;background:none;border:0;accent-color:var(--blue)}.size-field input[type=range]:disabled{opacity:.45}.size-auto{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--muted);padding-bottom:2px}.size-auto input{width:auto;margin:0;accent-color:var(--blue)}.chip{border:1px solid var(--line);background:white;border-radius:999px;padding:6px 13px;font-size:13px;font-weight:700;line-height:1.1}.chip:hover{background:#edf4ff}.chip[aria-pressed=true]{background:var(--blue);border-color:var(--blue);color:#fff}.poster-tools{padding:10px 20px 4px;gap:8px}.icon-btn{min-width:34px;padding:6px 9px;font-size:15px;line-height:1;display:inline-grid;place-items:center}.layout-menu{padding:0;border:0;font-size:14px;position:relative}.layout-menu summary{list-style:none;cursor:pointer}.layout-menu summary::-webkit-details-marker{display:none}.layout-menu[open] .layout-fields{position:absolute;right:0;top:calc(100% + 8px);z-index:9;width:min(320px,78vw);background:white;border:1px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 14px 34px #081d3e26}.layout-fields{padding-top:0}
+/* Bagian atas minimalis: bar tipis + kepala panel kecil */
+.topbar{padding:6px 0}
+.topbar nav{display:flex;align-items:center;gap:10px;max-width:1336px;margin:auto;padding-inline:36px;height:auto;min-height:0}
+.topbar .mark{width:28px;height:28px;border-radius:9px;font-size:17px}
+.topbar .zoom-controls{margin-left:auto}
+.topbar .zoom-controls .btn{padding:3px 9px;font-size:12px}
+.topbar .zoom-controls output{font-size:12px;min-width:38px;text-align:center}
+.topbar .size{padding:3px 8px;font-size:12px}
+.panel>.head{padding:10px 16px}
+.panel>.head h2{font-size:12px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.panel>.head p{display:none}
+@media(max-width:760px){.topbar nav{padding-inline:16px}}
+/* Kontrol ukuran dibuat lebih rapat agar pratinjau dapat ruang lebih besar */
+.poster-tools{padding:8px 12px 2px;gap:6px}
+.chip{padding:4px 11px;font-size:12px}
+.size-field{flex:1 1 130px;min-width:120px;gap:0}
+.size-field span,.size-field output{font-size:11px}
+.size-auto{font-size:11px;padding-bottom:0}
+.stage{padding:12px}
 </style>
 </head>
 <body>
-<header><nav><div class="brand"><span class="mark" aria-hidden="true">≈</span>Perumda Air Minum Kota Magelang Studio<span class="navtag">Editor pengumuman</span></div><button class="btn" id="reset" type="button">Muat contoh</button></nav></header>
+<header class="topbar"><nav><span class="mark" aria-hidden="true">≈</span><div class="zoom-controls" role="group" aria-label="Zoom pratinjau desain"><button class="btn" id="zoom-out" type="button" aria-label="Perkecil pratinjau">−</button><output id="zoom-value" for="zoom-in zoom-out" aria-live="polite">100%</output><button class="btn" id="zoom-in" type="button" aria-label="Perbesar pratinjau">+</button><button class="btn" id="zoom-reset" type="button" title="Kembali ke ukuran pas">Pas</button></div><span class="size" id="poster-size">1080 × 1080 px</span></nav></header>
 <main>
 <div class="grid">
-<section class="panel"><div class="head"><h2>Detail pengumuman</h2><p>Informasi ini langsung tampil di desain.</p></div>
+<section class="panel"><div class="head"><h2>Detail pengumuman</h2></div>
 <form id="editor">
 <fieldset class="design-controls">
 <legend>Template poster</legend>
@@ -116,7 +135,7 @@
 <label>Ukuran huruf <output id="advice-size" for="advice-scale">100%</output><input id="advice-scale" type="range" name="adviceScale" min="70" max="150" step="5" value="100"></label>
 </fieldset>
 </form></section>
-<section class="panel preview"><div class="head"><div><h2>Pratinjau desain</h2><p>Poster untuk media sosial</p></div><div class="zoom-controls" role="group" aria-label="Zoom pratinjau desain"><button class="btn" id="zoom-out" type="button" aria-label="Perkecil pratinjau">−</button><output id="zoom-value" for="zoom-in zoom-out" aria-live="polite">100%</output><button class="btn" id="zoom-in" type="button" aria-label="Perbesar pratinjau">+</button><button class="btn" id="zoom-reset" type="button" title="Kembali ke ukuran pas">Pas</button></div><span class="size" id="poster-size">1080 × 1080 px</span></div>
+<section class="panel preview"><div class="head"><h2>Pratinjau desain</h2></div>
 <div class="poster-tools"><div class="size-chips" role="group" aria-label="Ukuran poster"><button class="chip" type="button" data-size="portrait" aria-pressed="true">Potrait</button><button class="chip" type="button" data-size="square" aria-pressed="false">Persegi</button><button class="chip" type="button" data-size="story" aria-pressed="false">Story</button><button class="chip" type="button" data-size="custom" aria-pressed="false">Bebas</button></div><div class="size-custom" role="group" aria-label="Ukuran bebas poster"><label class="size-field"><span>Lebar</span><output id="poster-width-value" for="poster-width">1080 px</output><input id="poster-width" type="range" min="720" max="1620" step="20" value="1080" aria-label="Lebar poster"></label><label class="size-field"><span>Tinggi</span><output id="poster-height-value" for="poster-height">Otomatis</output><input id="poster-height" type="range" min="960" max="2600" step="20" value="1920" aria-label="Tinggi poster"></label><label class="size-auto"><input id="poster-height-auto" type="checkbox" checked> Tinggi otomatis</label></div><div class="layout-actions"><button class="btn icon-btn magnet-switch" id="magnet" type="button" aria-pressed="false" title="Magnet: tempelkan elemen ke tepi" aria-label="Magnet">⇥</button><button class="btn icon-btn" id="reset-poster-positions" type="button" title="Atur ulang posisi elemen" aria-label="Atur ulang posisi">⟲</button><details class="layout-menu"><summary class="btn icon-btn" title="Tata letak tersimpan" aria-label="Tata letak tersimpan">▤</summary><div class="layout-fields">
 <div class="row"><label><span class="sr">Nama tata letak</span><input id="layout-name" maxlength="70" placeholder="Nama tata letak"></label><button class="btn" id="save-layout" type="button">Simpan posisi</button></div>
 <div class="row"><label><span class="sr">Pilih tata letak tersimpan</span><select id="saved-layouts"><option value="">Pilih tata letak</option></select></label><button class="btn" id="apply-layout" type="button" disabled>Pakai</button></div>
@@ -127,4 +146,4 @@
 <footer id="status" role="status">Data awal adalah contoh. Periksa penyebab, jadwal, dan wilayah terdampak sebelum dibagikan.</footer>
 </main>
 <div class="font-menu" id="font-menu" role="menu" aria-label="Pilih font" hidden></div>
-<script src="backgrounds.js?v=20261126a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261126e"></script></body></html>
+<script src="backgrounds.js?v=20261126a"></script><script src="social-icons.js?v=20261125a"></script><script src="repair.js?v=20261125a"></script><script src="decorations.js?v=20261125a"></script><script src="app.js?v=20261126k"></script></body></html>
