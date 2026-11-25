@@ -220,6 +220,40 @@ function snapPosterPosition(id, x, y, box, limits) {
 }
 
 const posterBlocks = new Map()
+const blockScaleKey = 'kabar-air-block-scale'
+const lockedKey = 'kabar-air-locked-layers'
+let blockScales = readStorage(blockScaleKey, {})
+let lockedLayers = new Set(readStorage(lockedKey, []))
+
+function skalaBlok(id) {
+  const nilai = Number(blockScales[id])
+  return nilai >= 0.3 && nilai <= 2.5 ? nilai : 1
+}
+
+function skalaMaksimal(id) {
+  const entri = posterBlocks.get(id)
+  const lebar = entri && entri.naturalWidth ? entri.naturalWidth : 0
+  const tinggi = entri && entri.naturalHeight ? entri.naturalHeight : 0
+  if (!lebar || !tinggi) return 2.5
+  /* Aset tidak boleh melewati tepi kanan/bawah poster setelah diperbesar. */
+  const kanvasTinggi = canvas.height / (posterScale || 1)
+  const x = entri.bounds ? entri.bounds.x : 0
+  const y = entri.bounds ? entri.bounds.y : 0
+  const batasX = (layoutWidth - x) / lebar
+  const batasY = (kanvasTinggi - y) / tinggi
+  return Math.min(2.5, Math.max(1, Math.min(batasX, batasY)))
+}
+
+function aturSkalaBlok(id, nilai) {
+  const s = Math.max(0.3, Math.min(skalaMaksimal(id), nilai))
+  if (Math.abs(s - 1) < 0.005) delete blockScales[id]
+  else blockScales[id] = s
+  storeLocal(blockScaleKey, blockScales)
+}
+
+function simpanKunci() {
+  storeLocal(lockedKey, [...lockedLayers])
+}
 const movableLabels = {
   logo: 'Logo Perumda', agency: 'Nama perusahaan',
   banner: 'Label informasi layanan air', title: 'Judul pengumuman',
@@ -236,7 +270,7 @@ function registerPosterBlock(id, name, decorative = false) {
   posterBlocks.set(id, { handle, bounds: null })
   let drag = null
   function move(x, y) {
-    blockPositions[id] = { x, y }
+    blockPositions[id] = { x: x * 1080 / layoutWidth, y }
     render()
   }
   handle.addEventListener('pointerdown', event => {
@@ -284,6 +318,7 @@ function posterBlockLimits(width, height) {
 function renderBlock(id, x, y, width, height, draw) {
   if (hiddenLayers.has(id)) return
   const entry = posterBlocks.get(id)
+  const skala = skalaBlok(id)
   const transform = ctx.getTransform()
   const baseY = y + transform.f / posterScale
   const saved = blockPositions[id]
@@ -291,17 +326,32 @@ function renderBlock(id, x, y, width, height, draw) {
   const savedX = saved ? saved.x * layoutWidth / 1080 : null
   const nextX = saved ? Math.max(limits.minX, Math.min(limits.maxX, savedX)) : x
   const nextY = saved ? Math.max(limits.minY, Math.min(limits.maxY, saved.y)) : baseY
-  entry.bounds = { x: nextX, y: nextY, width, height }
+  /* Aset diskalakan dari pojok kiri-atasnya supaya tidak melewati tepi kiri/atas
+     poster; kotak sentuh ikut membesar/mengecil. */
+  const lebarAset = width * skala
+  const tinggiAset = height * skala
+  const kotakX = nextX
+  const kotakY = nextY
+  entry.naturalWidth = width
+  entry.naturalHeight = height
+  entry.bounds = { x: kotakX, y: kotakY, width: lebarAset, height: tinggiAset }
   const style = entry.handle.style
-  const left = transform.e + nextX * posterScale
-  const top = nextY * posterScale
+  const left = transform.e + kotakX * posterScale
+  const top = kotakY * posterScale
   style.left = Math.max(0, left) / canvas.width * 100 + '%'
   style.top = Math.max(0, top) / canvas.height * 100 + '%'
-  style.width = (Math.min(canvas.width, left + width * posterScale) - Math.max(0, left)) / canvas.width * 100 + '%'
-  style.height = (Math.min(canvas.height, top + height * posterScale) - Math.max(0, top)) / canvas.height * 100 + '%'
-  entry.handle.hidden = false
+  style.width = (Math.min(canvas.width, left + lebarAset * posterScale) - Math.max(0, left)) / canvas.width * 100 + '%'
+  style.height = (Math.min(canvas.height, top + tinggiAset * posterScale) - Math.max(0, top)) / canvas.height * 100 + '%'
+  entry.handle.hidden = lockedLayers.has(id)
   ctx.save()
   ctx.translate(nextX - x, nextY - baseY)
+  if (skala !== 1) {
+    /* Skala di sekitar titik asal blok (x, baseY) supaya isi tetap mulai di posisi
+       yang sama dan hanya tumbuh ke kanan/bawah. */
+    ctx.translate(x, baseY)
+    ctx.scale(skala, skala)
+    ctx.translate(-x, -baseY)
+  }
   draw()
   ctx.restore()
 }
@@ -674,7 +724,9 @@ function render() {
   } else {
     height = Math.round(Math.max(HEIGHT_MIN, Math.min(HEIGHT_MAX, Number(posterHeight) || 1920)))
   }
-  if (geo.photoCount) height = Math.max(height, 1920)
+  /* Potret otomatis butuh ruang ekstra untuk foto; ukuran Persegi/Story/Bebas
+     tetap seperti yang dipilih (isi menyesuaikan, bukan ukuran posternya). */
+  if (geo.photoCount && preset.auto) height = Math.max(height, 1920)
   height = Math.max(320, height)
   /* Bila isi desain asli tidak muat, kolom isi dilebarkan (teks melebar, huruf
      menyesuaikan); pada poster lebar blok isi otomatis disusun dua kolom. */
@@ -1403,6 +1455,7 @@ const decorationStatus = document.querySelector('#decoration-status')
 const decorationWidth = document.querySelector('#decoration-width')
 const decorationWidthValue = document.querySelector('#decoration-width-value')
 const decorationWidthRow = document.querySelector('#decoration-width-row')
+const scaleHint = document.querySelector('#scale-hint')
 const layerList = document.querySelector('#layer-list')
 
 function showDecorationStatus(message) {
@@ -1417,11 +1470,19 @@ function showLayerPanel() {
   for (const layer of [...decorationLayers].reverse()) {
     addLayerRow(layer.id, layer.name || decorationNames[layer.type], layer)
   }
-  const active = decorationLayers.find(layer => layer.id === selectedDecorationId)
-  decorationWidthRow.hidden = !active
-  if (active) {
-    decorationWidth.value = String(active.width)
-    decorationWidthValue.textContent = active.width + '%'
+  const aktif = selectedDecorationId
+  const hiasan = decorationLayers.find(layer => layer.id === aktif)
+  const bisaSkala = !!(aktif && (hiasan || Object.hasOwn(movableLabels, aktif)))
+  decorationWidthRow.hidden = !bisaSkala
+  scaleHint.hidden = !!bisaSkala
+  if (bisaSkala) {
+    const terkunci = lockedLayers.has(aktif)
+    const nilai = hiasan ? hiasan.width : Math.round(skalaBlok(aktif) * 100)
+    decorationWidth.min = hiasan ? '20' : '30'
+    decorationWidth.max = hiasan ? '130' : String(Math.round(skalaMaksimal(aktif) * 100))
+    decorationWidth.value = String(nilai)
+    decorationWidth.disabled = terkunci
+    decorationWidthValue.textContent = nilai + '%' + (terkunci ? ' · terkunci' : '')
   }
 }
 
@@ -1429,16 +1490,17 @@ function addLayerRow(id, name, layer) {
   const row = document.createElement('div')
   row.className = 'layer-row'
   row.dataset.selected = String(selectedDecorationId === id)
-  const title = document.createElement(layer ? 'button' : 'span')
-  title.className = layer ? 'layer-name layer-action' : 'layer-name'
+  const bisaAtur = !!layer || Object.hasOwn(movableLabels, id)
+  const title = document.createElement(bisaAtur ? 'button' : 'span')
+  title.className = bisaAtur ? 'layer-name layer-action' : 'layer-name'
   title.textContent = name
-  if (layer) {
+  if (bisaAtur) {
     title.type = 'button'
-    title.setAttribute('aria-label', 'Atur lebar ' + name)
+    title.setAttribute('aria-label', 'Atur skala ' + name)
     title.addEventListener('click', () => {
       selectedDecorationId = id
       showLayerPanel()
-      decorationWidth.focus()
+      if (!lockedLayers.has(id)) decorationWidth.focus()
     })
   }
   const toggle = document.createElement('button')
@@ -1461,7 +1523,30 @@ function addLayerRow(id, name, layer) {
     render()
     save()
   })
-  row.append(title, toggle)
+  row.append(title)
+  if (bisaAtur) {
+    const kunci = document.createElement('button')
+    kunci.className = 'layer-action icon-button lock'
+    kunci.type = 'button'
+    function updateKunci() {
+      const terkunci = lockedLayers.has(id)
+      kunci.textContent = terkunci ? '🔒' : '🔓'
+      kunci.title = (terkunci ? 'Buka kunci ' : 'Kunci ') + name + ' (tidak bisa digeser/diubah skala)'
+      kunci.setAttribute('aria-label', kunci.title)
+      kunci.setAttribute('aria-pressed', String(terkunci))
+    }
+    updateKunci()
+    kunci.addEventListener('click', () => {
+      if (lockedLayers.has(id)) lockedLayers.delete(id)
+      else lockedLayers.add(id)
+      simpanKunci()
+      updateKunci()
+      showLayerPanel()
+      render()
+    })
+    row.append(kunci)
+  }
+  row.append(toggle)
   if (layer) {
     const remove = document.createElement('button')
     remove.className = 'layer-action icon-button'
@@ -1474,6 +1559,10 @@ function addLayerRow(id, name, layer) {
       posterBlocks.get(id).handle.remove()
       posterBlocks.delete(id)
       delete blockPositions[id]
+      delete blockScales[id]
+      lockedLayers.delete(id)
+      storeLocal(blockScaleKey, blockScales)
+      simpanKunci()
       hiddenLayers.delete(id)
       decorationArtwork.delete(id)
       selectedDecorationId = decorationLayers.at(-1)?.id
@@ -1543,10 +1632,14 @@ function showOrnamentGallery() {
 }
 
 decorationWidth.addEventListener('input', () => {
-  const layer = decorationLayers.find(item => item.id === selectedDecorationId)
-  if (!layer) return
-  layer.width = Number(decorationWidth.value)
-  decorationWidthValue.textContent = layer.width + '%'
+  const id = selectedDecorationId
+  if (!id || lockedLayers.has(id)) return
+  const nilai = Number(decorationWidth.value)
+  const layer = decorationLayers.find(item => item.id === id)
+  if (layer) layer.width = nilai
+  else if (Object.hasOwn(movableLabels, id)) aturSkalaBlok(id, nilai / 100)
+  else return
+  decorationWidthValue.textContent = nilai + '%'
   render()
   save()
 })
