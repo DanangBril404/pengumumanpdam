@@ -582,7 +582,7 @@ function render() {
   }
   setFont()
 
-  if (logo) renderBlock('logo', 55, 33, 132, 132, () => paintLogo(ctx, logo, 121, 99, 132))
+  if (logo) renderBlock('logo', 55, 33, 148, 148, () => paintLogo(ctx, logo, 121, 99, 148))
   const agencyX = logo ? 201 : 65
   renderBlock('agency', agencyX, 42, 530, 104, () => {
     ctx.shadowColor = '#061421'
@@ -969,7 +969,7 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
 })
 
 /* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
-const LOGO_PATH = 'logo-perumda.png'
+const LOGO_PATH = 'logo-perumda.webp'
 
 function setLogo(image) {
   logo = image
