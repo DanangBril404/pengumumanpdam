@@ -56,15 +56,32 @@ function drawFeathered(context, image, x, y, width, height, edges = {}, pan = nu
   /* Isi foto digambar di dalam bingkai (bukan memindah bingkainya): skala dasar
      menutup bingkai, dikali zoom, lalu digeser; dibatasi agar tanpa ruang kosong. */
   const zoom = pan && Number(pan.z) > 0 ? Number(pan.z) : 1
-  const skala = Math.max(w / image.width, h / image.height) * zoom
+  /* pan.r = sudut putar (derajat). Skala dasar dinaikkan seperlunya agar keempat
+     sudut bingkai tetap tertutup gambar setelah diputar (tanpa ruang kosong). */
+  const sudut = pan && Number(pan.r) ? Number(pan.r) * Math.PI / 180 : 0
+  const dasar = Math.max(w / image.width, h / image.height) * zoom
+  let skala = dasar
+  if (sudut) {
+    const c = Math.abs(Math.cos(sudut))
+    const s = Math.abs(Math.sin(sudut))
+    skala = dasar * Math.max((w * c + h * s) / (image.width * dasar), (w * s + h * c) / (image.height * dasar))
+  }
   const lebarGambar = image.width * skala
   const tinggiGambar = image.height * skala
   const sisaX = Math.max(0, (lebarGambar - w) / 2)
   const sisaY = Math.max(0, (tinggiGambar - h) / 2)
   const geserX = pan ? Math.max(-sisaX, Math.min(sisaX, Number(pan.x) || 0)) : 0
   const geserY = pan ? Math.max(-sisaY, Math.min(sisaY, Number(pan.y) || 0)) : 0
-  layer.drawImage(image, 0, 0, image.width, image.height,
-    (w - lebarGambar) / 2 + geserX, (h - tinggiGambar) / 2 + geserY, lebarGambar, tinggiGambar)
+  if (sudut) {
+    layer.save()
+    layer.translate(w / 2 + geserX, h / 2 + geserY)
+    layer.rotate(sudut)
+    layer.drawImage(image, -lebarGambar / 2, -tinggiGambar / 2, lebarGambar, tinggiGambar)
+    layer.restore()
+  } else {
+    layer.drawImage(image, 0, 0, image.width, image.height,
+      (w - lebarGambar) / 2 + geserX, (h - tinggiGambar) / 2 + geserY, lebarGambar, tinggiGambar)
+  }
   layer.globalCompositeOperation = 'destination-in'
   layer.fillStyle = '#ffffff'
   layer.fillRect(0, 0, w, h)

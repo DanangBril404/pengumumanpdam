@@ -2451,6 +2451,9 @@ let bannerDragState = null
 const bannerZoom = document.querySelector('#banner-zoom')
 const bannerZoomRow = document.querySelector('#banner-zoom-row')
 const bannerZoomValue = document.querySelector('#banner-zoom-value')
+const bannerRotate = document.querySelector('#banner-rotate')
+const bannerRotateRow = document.querySelector('#banner-rotate-row')
+const bannerRotateValue = document.querySelector('#banner-rotate-value')
 
 function panBannerAktif() {
   const nilai = bannerPan[template]
@@ -2458,7 +2461,8 @@ function panBannerAktif() {
   const x = Number(nilai.x) || 0
   const y = Number(nilai.y) || 0
   const z = Number(nilai.z) > 1 ? Number(nilai.z) : 1
-  return x || y || z > 1 ? { x, y, z } : null
+  const r = Number(nilai.r) || 0
+  return x || y || z > 1 || r ? { x, y, z, r } : null
 }
 
 function zoomBannerAktif() {
@@ -2466,25 +2470,49 @@ function zoomBannerAktif() {
   return nilai && Number(nilai.z) > 1 ? Number(nilai.z) : 1
 }
 
-function batasPanBanner() {
+function rotasiBannerAktif() {
+  const nilai = bannerPan[template]
+  return nilai && Number(nilai.r) ? Number(nilai.r) : 0
+}
+
+/* Bingkai banner bisa diatur untuk semua template bergambar: Banner Foto maupun
+   banner animasi (artwork). Template manual punya kontrol sendiri. */
+function bannerBisaDiatur(backdrop) {
+  return !!(backdrop && !backdrop.manual && templateArtwork.get(template) && !hiddenLayers.has('artwork'))
+}
+
+function batasPanBanner(z = zoomBannerAktif(), r = rotasiBannerAktif()) {
   const image = templateArtwork.get(template)
   if (!image) return null
-  const skala = Math.max(BANNER_FRAME.width / image.width, BANNER_FRAME.height / image.height) * zoomBannerAktif()
-  const maxX = Math.max(0, (image.width * skala - BANNER_FRAME.width) / 2)
-  const maxY = Math.max(0, (image.height * skala - BANNER_FRAME.height) / 2)
+  const sudut = r * Math.PI / 180
+  const w = BANNER_FRAME.width
+  const h = BANNER_FRAME.height
+  const dasar = Math.max(w / image.width, h / image.height) * z
+  let skala = dasar
+  if (r) {
+    const c = Math.abs(Math.cos(sudut))
+    const s = Math.abs(Math.sin(sudut))
+    skala = dasar * Math.max((w * c + h * s) / (image.width * dasar), (w * s + h * c) / (image.height * dasar))
+  }
+  const maxX = Math.max(0, (image.width * skala - w) / 2)
+  const maxY = Math.max(0, (image.height * skala - h) / 2)
   if (maxX < 1 && maxY < 1) return null
   return { maxX, maxY }
 }
 
 function perbaruiDragBanner(backdrop, offset, skala, lebar, tinggi) {
-  const foto = !!(backdrop && backdrop.kind === 'foto')
-  bannerBounds = foto ? batasPanBanner() : null
+  const bisaAtur = bannerBisaDiatur(backdrop)
+  bannerBounds = bisaAtur ? batasPanBanner() : null
   bannerDrag.hidden = !bannerBounds
-  bannerZoomRow.hidden = !foto
-  if (foto) {
+  bannerZoomRow.hidden = !bisaAtur
+  bannerRotateRow.hidden = !bisaAtur
+  if (bisaAtur) {
     const z = zoomBannerAktif()
     bannerZoom.value = String(Math.round(z * 100))
     bannerZoomValue.textContent = Math.round(z * 100) + '%'
+    const r = rotasiBannerAktif()
+    bannerRotate.value = String(Math.round(r))
+    bannerRotateValue.textContent = Math.round(r) + '°'
   }
   if (!bannerBounds) return
   bannerDrag.style.left = (offset + (layoutWidth - 1080 + BANNER_FRAME.x) * skala) / lebar * 100 + '%'
@@ -2501,6 +2529,8 @@ function geserBanner(x, y) {
   }
   const z = zoomBannerAktif()
   if (z > 1) nilai.z = z
+  const r = rotasiBannerAktif()
+  if (r) nilai.r = r
   bannerPan = { ...bannerPan, [template]: nilai }
   storeLocal(bannerPanKey, bannerPan)
   render()
@@ -2530,28 +2560,40 @@ bannerDrag.addEventListener('keydown', event => {
   const langkah = event.shiftKey ? 40 : 10
   geserBanner(kini.x + arah[0] * langkah, kini.y + arah[1] * langkah)
 })
-function aturZoomBanner(persen) {
-  const z = Math.max(1, Math.min(2.6, persen / 100))
-  const kini = panBannerAktif() || { x: 0, y: 0 }
-  const image = templateArtwork.get(template)
-  let x = kini.x
-  let y = kini.y
-  if (image) {
-    const skala = Math.max(BANNER_FRAME.width / image.width, BANNER_FRAME.height / image.height) * z
-    const maxX = Math.max(0, (image.width * skala - BANNER_FRAME.width) / 2)
-    const maxY = Math.max(0, (image.height * skala - BANNER_FRAME.height) / 2)
-    x = Math.max(-maxX, Math.min(maxX, x))
-    y = Math.max(-maxY, Math.min(maxY, y))
-  }
-  const salinan = { ...bannerPan }
-  if (z <= 1) salinan[template] = { x, y }
-  else salinan[template] = { x, y, z }
-  bannerPan = salinan
+function simpanPanBanner(x, y, z, r) {
+  const nilai = { x, y }
+  if (z > 1) nilai.z = z
+  if (r) nilai.r = r
+  bannerPan = { ...bannerPan, [template]: nilai }
   storeLocal(bannerPanKey, bannerPan)
   render()
 }
 
+/* Batasi geseran setelah zoom/putar berubah supaya tidak ada ruang kosong. */
+function rapikanPanBanner(z, r) {
+  const kini = panBannerAktif() || { x: 0, y: 0 }
+  const batas = batasPanBanner(z, r)
+  const x = batas ? Math.max(-batas.maxX, Math.min(batas.maxX, kini.x)) : 0
+  const y = batas ? Math.max(-batas.maxY, Math.min(batas.maxY, kini.y)) : 0
+  return { x, y }
+}
+
+function aturZoomBanner(persen) {
+  const z = Math.max(1, Math.min(2.6, persen / 100))
+  const r = rotasiBannerAktif()
+  const { x, y } = rapikanPanBanner(z, r)
+  simpanPanBanner(x, y, z, r)
+}
+
+function aturRotasiBanner(derajat) {
+  const r = Math.max(-20, Math.min(20, Math.round(derajat)))
+  const z = zoomBannerAktif()
+  const { x, y } = rapikanPanBanner(z, r)
+  simpanPanBanner(x, y, z, r)
+}
+
 bannerZoom.addEventListener('input', () => aturZoomBanner(Number(bannerZoom.value)))
+bannerRotate.addEventListener('input', () => aturRotasiBanner(Number(bannerRotate.value)))
 bannerDrag.addEventListener('wheel', event => {
   if (!bannerBounds) return
   event.preventDefault()
