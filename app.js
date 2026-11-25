@@ -38,6 +38,36 @@ let agency = 'Perumda Air Minum Kota Magelang'
 let logoKustom = ''
 let backsoundUrl = ''
 let backsoundNama = ''
+/* Gaya huruf per aset/tabel: ukuran (%), warna, dan outline. Disimpan di localStorage. */
+let gayaAset = readStorage('kabar-air-gaya-aset', {}) || {}
+let gayaAktif = null
+const WARNA_OUTLINE_BAWAAN = '#0b2943'
+const gayaBawaan = { size: 100, color: '', outline: false, outlineColor: WARNA_OUTLINE_BAWAAN, outlineWidth: 2 }
+
+function gayaUntuk(id) {
+  const simpan = (id && gayaAset[id]) || {}
+  const dasar = Object.assign({}, gayaBawaan, simpan)
+  /* Wilayah Terdampak selalu diberi outline agar tulisannya tetap terbaca. */
+  if (id === 'areas' && !Object.hasOwn(simpan, 'outline')) dasar.outline = true
+  return dasar
+}
+
+function simpanGayaAset() {
+  storeLocal('kabar-air-gaya-aset', gayaAset)
+}
+
+function skalaHuruf(id) {
+  const nilai = Number(gayaUntuk(id).size)
+  return Math.max(0.5, Math.min(2, (Number.isFinite(nilai) ? nilai : 100) / 100))
+}
+
+function outlineTeks(teks, x, y, gaya) {
+  ctx.lineJoin = 'round'
+  ctx.miterLimit = 2
+  ctx.lineWidth = Math.max(1, Number(gaya.outlineWidth) || 2) * 2
+  ctx.strokeStyle = gaya.outlineColor || WARNA_OUTLINE_BAWAAN
+  ctx.strokeText(teks, x, y)
+}
 const socials = [
   'Instagram  @perumdamkotamagelang.official',
   'Facebook  pdamkotamagelang.official',
@@ -350,7 +380,10 @@ function renderBlock(id, x, y, width, height, draw) {
   entry.handle.hidden = lockedLayers.has(id)
   ctx.save()
   ctx.translate(nextX - x, nextY - baseY)
+  const gayaSebelumnya = gayaAktif
+  gayaAktif = id
   draw()
+  gayaAktif = gayaSebelumnya
   ctx.restore()
 }
 
@@ -413,14 +446,15 @@ function scheduleText(day, time) {
 }
 
 function drawSchedule(day, time, x, y, dark, bright, until = false, maxWidth = 430) {
+  const sk = skalaHuruf('schedule')
   if (until) {
-    labelFit('SAMPAI SELESAI', x, y + 100, 36, dark, 800, maxWidth)
+    labelFit('SAMPAI SELESAI', x, y + Math.round(100 * sk), 36, dark, 800, maxWidth)
     return
   }
   const date = displayDate(day)
   const hour = displayTime(time)
-  labelFit(date || (!hour ? 'Belum diinformasikan' : ''), x, y + 79, 29, dark, 700, maxWidth)
-  if (hour) labelFit(hour, x, date ? y + 126 : y + 100, 41, bright, 800, maxWidth)
+  labelFit(date || (!hour ? 'Belum diinformasikan' : ''), x, y + Math.round(79 * sk), 29, dark, 700, maxWidth)
+  if (hour) labelFit(hour, x, date ? y + Math.round(126 * sk) : y + Math.round(100 * sk), 41, bright, 800, maxWidth)
 }
 
 function fontStack(key) {
@@ -436,20 +470,25 @@ function typeface(size, weight) {
 }
 
 function label(text, x, y, size, color, weight = 700) {
-  ctx.fillStyle = color
+  const gaya = gayaAktif ? gayaUntuk(gayaAktif) : null
+  if (gaya) size = Math.max(6, Math.round(size * skalaHuruf(gayaAktif)))
   typeface(size, weight)
+  if (gaya && gaya.outline) outlineTeks(text, x, y, gaya)
+  ctx.fillStyle = gaya && gaya.color ? gaya.color : color
   ctx.fillText(text, x, y)
 }
 
 /* Tulis satu baris; huruf dikecilkan bertahap agar tidak melewati lebar kotak. */
 function labelFit(text, x, y, size, color, weight, maxWidth) {
-  let ukuran = size
+  const gaya = gayaAktif ? gayaUntuk(gayaAktif) : null
+  let ukuran = gaya ? Math.max(6, Math.round(size * skalaHuruf(gayaAktif))) : size
   typeface(ukuran, weight)
   while (ukuran > 15 && ctx.measureText(text).width > maxWidth) {
     ukuran -= 1
     typeface(ukuran, weight)
   }
-  ctx.fillStyle = color
+  if (gaya && gaya.outline) outlineTeks(text, x, y, gaya)
+  ctx.fillStyle = gaya && gaya.color ? gaya.color : color
   ctx.fillText(text, x, y)
 }
 
@@ -486,6 +525,8 @@ function wrap(text, width) {
 }
 
 function block(text, x, y, width, lineLimit, size, color, weight = 600) {
+  const gaya = gayaAktif ? gayaUntuk(gayaAktif) : null
+  if (gaya) size = Math.max(6, Math.round(size * skalaHuruf(gayaAktif)))
   let lines
   do {
     typeface(size, weight)
@@ -493,8 +534,14 @@ function block(text, x, y, width, lineLimit, size, color, weight = 600) {
     if (lines.length <= lineLimit) break
     size -= 1
   } while (size > 10)
-  ctx.fillStyle = color
-  lines.forEach((line, index) => ctx.fillText(line, x, y + index * size * 1.23))
+  const warna = gaya && gaya.color ? gaya.color : color
+  ctx.fillStyle = warna
+  lines.forEach((line, index) => {
+    const barisY = y + index * size * 1.23
+    if (gaya && gaya.outline) outlineTeks(line, x, barisY, gaya)
+    ctx.fillStyle = warna
+    ctx.fillText(line, x, barisY)
+  })
 }
 
 function drawSocial(index, handle, x, y, width) {
@@ -583,7 +630,8 @@ function drawAdvice(f, x, y, lines, fontSize, height, dark, width = 840, title =
   setFont('adviceTitle')
   labelFit(title || 'IMBAUAN PELANGGAN', x + 90, y + 32, 19, dark, 800, width - 112)
   setFont('advice')
-  lines.forEach((line, index) => label(line, x + 90, y + 67 + index * (fontSize + 7), fontSize, dark, 700))
+  const langkahImbauan = Math.round((fontSize + 7) * skalaHuruf('advice'))
+  lines.forEach((line, index) => label(line, x + 90, y + 67 + index * langkahImbauan, fontSize, dark, 700))
   ctx.restore()
 }
 
@@ -608,24 +656,26 @@ function measureLayout(f, LW, repair) {
   setFont('title')
   typeface(titleSize, 800)
   const titleLines = wrap(heading, titleWidth)
-  const titleStep = Math.round(titleSize * 1.12)
+  const titleStep = Math.round(titleSize * 1.12 * skalaHuruf('title'))
   const titleY = repair ? 311 : 286
   const titleEnd = titleY + (titleLines.length - 1) * titleStep
   const extraSize = repair ? 31 : 28
+  const skExtra = skalaHuruf('extra')
   setFont('extra')
-  typeface(extraSize, 700)
+  typeface(Math.round(extraSize * skExtra), 700)
   const extraWidth = wide ? textW - 2 : (repair ? Math.min(800, IW) : IW - 2)
   const extraLines = f.titleExtra ? wrap(f.titleExtra, extraWidth) : []
   const extraY = Math.max(repair ? 450 : 316, titleEnd + extraSize + 12)
-  const extraEnd = extraLines.length ? extraY + (extraLines.length - 1) * (extraSize + 8) : titleEnd
+  const extraEnd = extraLines.length ? extraY + (extraLines.length - 1) * Math.round((extraSize + 8) * skExtra) : titleEnd
   const underline = Math.max(436, extraEnd + 23)
   const shift = repair ? repairHeroOffset + Math.max(0, underline - 500) : Math.max(0, extraEnd - 300)
   const photoCount = hiddenLayers.has('photos') ? 0 : Number(f.photoLayout)
   const photoHeight = repair ? (photoCount === 1 ? 455 : 394) : (photoCount === 1 ? 355 : 320)
   const photoSpace = photoCount ? photoHeight + 64 : 0
   const areas = locations(f.area)
+  const skArea = skalaHuruf('areas')
   setFont('area')
-  typeface(27, 600)
+  typeface(Math.round(27 * skArea), 600)
   const areaBoxW = wide ? colW : IW
   const columns = areas.length >= 6 && areaBoxW >= 520 ? 2 : 1
   const areaWidth = columns === 2 ? Math.round(areaBoxW / 2 - 37) : areaBoxW - 52
@@ -633,37 +683,48 @@ function measureLayout(f, LW, repair) {
   const split = columns === 2 ? Math.ceil(areaLines.length / 2) : areaLines.length
   const left = areaLines.slice(0, split)
   const right = areaLines.slice(split)
-  const heightOf = group => group.reduce((sum, lines) => sum + lines.length * 34 + 8, 0)
+  const barisWilayahTinggi = Math.round(34 * skArea)
+  const heightOf = group => group.reduce((sum, lines) => sum + lines.length * barisWilayahTinggi + 8, 0)
   const areaHeight = Math.max(heightOf(left), heightOf(right))
   const adviceSize = Math.round(28 * Number(f.adviceScale) / 100)
+  const skAdvice = skalaHuruf('advice')
   setFont('advice')
-  typeface(adviceSize, 700)
+  typeface(Math.round(adviceSize * skAdvice), 700)
   const adviceWrap = wide ? colW - 130 : Math.round(IW * .762)
   const adviceLines = f.advice ? wrap(f.advice, adviceWrap) : []
-  const adviceHeight = adviceLines.length ? 85 + (adviceLines.length - 1) * (adviceSize + 7) : 0
+  const adviceHeight = adviceLines.length
+    ? 85 + (adviceLines.length - 1) * Math.round((adviceSize + 7) * skAdvice) : 0
   const adviceSpace = adviceHeight ? adviceHeight + 23 : 0
   const footerHeight = 100
+  /* Tinggi kotak Penyebab & Jadwal ikut membesar bila ukuran hurufnya dinaikkan,
+     supaya isi tidak terpotong; blok di bawahnya bergeser sebesar selisihnya. */
+  const hCause = Math.round(172 * skalaHuruf('cause'))
+  const hSchedule = Math.round(162 * skalaHuruf('schedule'))
+  const deltaTabel = (hCause - 172) + (hSchedule - 162)
   let blocks, naturalHeight, bodyBottom
   if (wide) {
     const bodyTop = Math.max(repair ? 545 : 380, extraEnd + 36)
     const rightX = PAD + colW + gap
+    const ySchedule = bodyTop + hCause + 18
+    const yAdvice = ySchedule + hSchedule + 18
     blocks = {
-      cause: { x: PAD, y: bodyTop, w: colW, h: 172 },
-      schedule: { x: PAD, y: bodyTop + 190, w: colW, h: 162 },
-      advice: { x: PAD, y: bodyTop + 370, w: colW, h: adviceHeight },
+      cause: { x: PAD, y: bodyTop, w: colW, h: hCause },
+      schedule: { x: PAD, y: ySchedule, w: colW, h: hSchedule },
+      advice: { x: PAD, y: yAdvice, w: colW, h: adviceHeight },
       areas: { x: rightX, y: bodyTop, w: colW, h: areaHeight + 76 }
     }
-    bodyBottom = Math.max(bodyTop + 370 + adviceHeight, bodyTop + areaHeight + 76)
+    bodyBottom = Math.max(yAdvice + adviceHeight, bodyTop + areaHeight + 76)
     naturalHeight = bodyBottom + photoSpace + footerHeight + 148
   } else {
+    const yArea = 650 + deltaTabel
     blocks = {
-      cause: { x: PAD, y: 325, w: IW, h: 172 },
-      schedule: { x: PAD, y: 516, w: IW, h: 162 },
-      areas: { x: PAD, y: 650, w: IW, h: areaHeight + 76 },
+      cause: { x: PAD, y: 325, w: IW, h: hCause },
+      schedule: { x: PAD, y: 325 + hCause + 19, w: IW, h: hSchedule },
+      areas: { x: PAD, y: yArea, w: IW, h: areaHeight + 76 },
       advice: { x: PAD + 56, y: 0, w: Math.round(IW * .882), h: adviceHeight }
     }
-    bodyBottom = 650 + areaHeight + 76 + shift + adviceSpace
-    naturalHeight = 974 + areaHeight + footerHeight - 100 + photoSpace + shift + adviceSpace
+    bodyBottom = yArea + areaHeight + 76 + shift + adviceSpace
+    naturalHeight = yArea + areaHeight + 76 + footerHeight + 148 + photoSpace + shift + adviceSpace
   }
   return { PAD, IW, wide, colW, gap, titleSize, titleWidth, titleLines, titleStep, titleY, titleEnd,
     extraSize, extraLines, extraWidth, extraY, extraEnd, underline, shift, photoCount, photoHeight,
@@ -676,13 +737,13 @@ function measureLayout(f, LW, repair) {
 function barisImbauan(f, lebar, ukuran) {
   if (!f.advice) return []
   setFont('advice')
-  typeface(ukuran, 700)
+  typeface(Math.round(ukuran * skalaHuruf('advice')), 700)
   return wrap(f.advice, Math.max(140, lebar - 112))
 }
 
 function barisWilayah(geo, lebar) {
   setFont('area')
-  typeface(27, 600)
+  typeface(Math.round(27 * skalaHuruf('areas')), 600)
   const kolom = geo.columns === 2 && lebar >= 520 ? 2 : 1
   const lebarIsi = kolom === 2 ? Math.round(lebar / 2 - 37) : lebar - 52
   const daftar = (geo.areas.length ? geo.areas : ['Belum diinformasikan'])
@@ -732,12 +793,13 @@ function drawAreasBox(geo, x, y, w, accent, bright, dark, h = geo.areaHeight + 3
   ctx.clip()
   for (const [index, group] of [groups.left, groups.right].entries()) {
     if (!columnX[index]) continue
+    const sk = skalaHuruf('areas')
     let rowY = y + 81
     for (const lines of group) {
       label('•', columnX[index], rowY, 27, bright)
       for (const line of lines) {
-        label(line, columnX[index] + 27, rowY, 27, dark, 600)
-        rowY += 34
+        label(line, columnX[index] + Math.round(27 * sk), rowY, 27, dark, 600)
+        rowY += Math.round(34 * sk)
       }
       rowY += 8
     }
@@ -861,7 +923,8 @@ function render() {
   if (extraLines.length) {
     renderBlock('extra', PAD + 1, extraY - extraSize, extraWidth, extraEnd - extraY + extraSize + 12, () => {
       setFont('extra')
-      extraLines.forEach((line, index) => label(line, PAD + 1, extraY + index * (extraSize + 8), extraSize, '#ffffff'))
+      extraLines.forEach((line, index) => label(line, PAD + 1,
+        extraY + index * Math.round((extraSize + 8) * skalaHuruf('extra')), extraSize, '#ffffff'))
     })
   }
 
@@ -883,27 +946,29 @@ function render() {
     renderBlock('areas', ar.x, ar.y, kr.w, kr.h,
       () => drawAreasBox(geo, ar.x, ar.y, kr.w, accent, bright, dark, kr.h, kolomWilayah))
   } else {
+    const c = blocks.cause, s = blocks.schedule, ar = blocks.areas
     ctx.save()
     ctx.translate(0, shift + spacing)
-    const kc = kotakBlok('cause', IW, 172)
-    renderBlock('cause', PAD, 325, kc.w, kc.h,
-      () => drawCauseBox(cause, f.note, PAD, 325, kc.w, dark, f.causeTitle, kc.h))
+    const kc = kotakBlok('cause', c.w, c.h)
+    renderBlock('cause', c.x, c.y, kc.w, kc.h,
+      () => drawCauseBox(cause, f.note, c.x, c.y, kc.w, dark, f.causeTitle, kc.h))
     ctx.translate(0, spacing)
-    const ks = kotakBlok('schedule', IW, 162)
-    renderBlock('schedule', PAD, 516, ks.w, ks.h,
-      () => drawScheduleBox(f, PAD, 516, ks.w, dark, bright, ks.h))
+    const ks = kotakBlok('schedule', s.w, s.h)
+    renderBlock('schedule', s.x, s.y, ks.w, ks.h,
+      () => drawScheduleBox(f, s.x, s.y, ks.w, dark, bright, ks.h))
     ctx.translate(0, 52 + spacing)
     const adviceX = PAD + 56
     const ka = kotakBlok('advice', Math.round(IW * .882), adviceHeight)
-    const kr = kotakBlok('areas', IW, areaHeight + 76)
+    const kr = kotakBlok('areas', ar.w, ar.h)
     const isiImbauan = ka.w === Math.round(IW * .882) ? adviceLines : barisImbauan(f, ka.w, adviceSize)
-    const kolomWilayah = kr.w === IW ? null : barisWilayah(geo, kr.w)
+    const kolomWilayah = kr.w === ar.w ? null : barisWilayah(geo, kr.w)
     setFont()
-    renderBlock('areas', PAD, 650, kr.w, kr.h,
-      () => drawAreasBox(geo, PAD, 650, kr.w, accent, bright, dark, kr.h, kolomWilayah))
+    renderBlock('areas', ar.x, ar.y, kr.w, kr.h,
+      () => drawAreasBox(geo, ar.x, ar.y, kr.w, accent, bright, dark, kr.h, kolomWilayah))
     if (adviceSpace) {
-      renderBlock('advice', adviceX, 744 + areaHeight, ka.w, ka.h,
-        () => drawAdvice(f, adviceX, 744 + areaHeight, isiImbauan, adviceSize, ka.h, dark, ka.w, f.adviceTitle))
+      const adviceY = ar.y + 94 + areaHeight
+      renderBlock('advice', adviceX, adviceY, ka.w, ka.h,
+        () => drawAdvice(f, adviceX, adviceY, isiImbauan, adviceSize, ka.h, dark, ka.w, f.adviceTitle))
       ctx.translate(0, adviceSpace)
     }
     ctx.restore()
@@ -920,7 +985,7 @@ function render() {
     const maxX = LW - lebarFoto - 48
     const maxY = footerTop - docHeight - 12
     const defaultY = wide ? geo.bodyBottom + 12
-      : 846 + areaHeight + shift + spacing * 3 + adviceSpace
+      : blocks.areas.y + 196 + areaHeight + shift + spacing * 3 + adviceSpace
     const x = Math.max(48, Math.min(maxX, f.docX === '' ? 120 : Number(f.docX)))
     const y = Math.max(24, Math.min(maxY, f.docY === '' ? defaultY : Number(f.docY)))
     docBounds = { x, y, width: lebarFoto, height: docHeight, maxX, maxY }
@@ -1515,6 +1580,19 @@ const layerSizeName = document.querySelector('#layer-size-name')
 const layerSizeHint = document.querySelector('#layer-size-hint')
 const resetLayerSize = document.querySelector('#reset-layer-size')
 const layerList = document.querySelector('#layer-list')
+const layerFontSize = document.querySelector('#layer-font-size')
+const layerFontValue = document.querySelector('#layer-font-value')
+const layerFontColor = document.querySelector('#layer-font-color')
+const resetFontColor = document.querySelector('#reset-font-color')
+const layerOutline = document.querySelector('#layer-outline')
+const layerOutlineColor = document.querySelector('#layer-outline-color')
+const layerOutlineWidth = document.querySelector('#layer-outline-width')
+const layerOutlineValue = document.querySelector('#layer-outline-value')
+const fontTools = document.querySelector('#font-tools')
+
+/* Aset yang punya huruf: ukuran, warna, dan outline bisa diatur. */
+const asetBerhuruf = new Set(['title', 'extra', 'agency', 'banner', 'cause', 'schedule',
+  'areas', 'advice', 'socials', 'photos', 'documentation'])
 
 /* Aset yang punya kotak (kartu/tabel) sehingga lebar/tingginya bisa diatur. */
 const asetBerkotak = new Set(['cause', 'schedule', 'areas', 'advice', 'photos', 'socials'])
@@ -1543,6 +1621,19 @@ function syncLayerSize() {
   layerHeight.value = String(ukuran.h)
   layerWidthValue.textContent = lebar + '%'
   layerHeightValue.textContent = ukuran.h + '%'
+  const bisaHuruf = !!nama && !terkunci && asetBerhuruf.has(id) && !hiasan
+  const gaya = gayaUntuk(id)
+  fontTools.dataset.mati = bisaHuruf ? '0' : '1'
+  layerFontSize.disabled = layerFontColor.disabled = resetFontColor.disabled = layerOutline.disabled =
+    layerOutlineColor.disabled = layerOutlineWidth.disabled = !bisaHuruf
+  layerFontSize.value = String(gaya.size)
+  layerFontValue.textContent = gaya.size + '%'
+  layerFontColor.value = /^#[0-9a-f]{6}$/i.test(gaya.color) ? gaya.color : '#ffffff'
+  layerFontColor.title = gaya.color ? 'Warna huruf: ' + gaya.color : 'Warna huruf asli (belum diubah)'
+  layerOutline.checked = !!gaya.outline
+  layerOutlineColor.value = /^#[0-9a-f]{6}$/i.test(gaya.outlineColor) ? gaya.outlineColor : WARNA_OUTLINE_BAWAAN
+  layerOutlineWidth.value = String(gaya.outlineWidth || 2)
+  layerOutlineValue.textContent = String(gaya.outlineWidth || 2)
   layerSizeHint.textContent = !nama
     ? 'Pilih tabel di panel Layer (Penyebab, Jadwal, Wilayah, Imbauan, Foto, Media sosial) atau hiasan. Lebar/Tinggi hanya mengubah kotaknya — huruf dan ukurannya tetap.'
     : !bisa ? 'Aset ini teks tanpa kotak. Pilih tabel Penyebab, Jadwal, Wilayah, Imbauan, Foto dokumentasi, atau Media sosial.'
@@ -1771,6 +1862,30 @@ resetLayerSize.addEventListener('click', () => {
   save()
 })
 
+/* ---------- Gaya huruf per aset: ukuran, warna, outline ---------- */
+function ubahGayaHuruf(tambahan) {
+  const id = selectedDecorationId
+  if (!id || !asetBerhuruf.has(id) || lockedLayers.has(id)) return
+  gayaAset[id] = Object.assign(gayaUntuk(id), tambahan)
+  simpanGayaAset()
+  syncLayerSize()
+  render()
+  save()
+}
+
+layerFontSize.addEventListener('input', () => {
+  layerFontValue.textContent = layerFontSize.value + '%'
+  ubahGayaHuruf({ size: Number(layerFontSize.value) || 100 })
+})
+layerFontColor.addEventListener('input', () => ubahGayaHuruf({ color: layerFontColor.value }))
+resetFontColor.addEventListener('click', () => ubahGayaHuruf({ color: '' }))
+layerOutline.addEventListener('change', () => ubahGayaHuruf({ outline: layerOutline.checked }))
+layerOutlineColor.addEventListener('input', () => ubahGayaHuruf({ outlineColor: layerOutlineColor.value }))
+layerOutlineWidth.addEventListener('input', () => {
+  layerOutlineValue.textContent = layerOutlineWidth.value
+  ubahGayaHuruf({ outlineWidth: Number(layerOutlineWidth.value) || 2 })
+})
+
 decorationUpload.addEventListener('change', async () => {
   const files = Array.from(decorationUpload.files)
   decorationUpload.value = ''
@@ -1843,7 +1958,7 @@ function buatTatanan(name, id = buatId()) {
     id, name, template, size: posterSize, photos: jumlahFotoAktif(),
     photoLayout: form.elements.photoLayout.value,
     positions: structuredClone(blockPositions), layers: structuredClone(decorationLayers),
-    sizes: structuredClone(blockSizes), hidden: [...hiddenLayers],
+    sizes: structuredClone(blockSizes), hidden: [...hiddenLayers], gaya: structuredClone(gayaAset),
     photo: [form.elements.docX.value, form.elements.docY.value]
   }
 }
@@ -1940,6 +2055,8 @@ async function pakaiTatanan(id) {
   for (const layer of decorationLayers) registerPosterBlock(layer.id, layer.name || decorationNames[layer.type], true)
   blockSizes = layout.sizes && typeof layout.sizes === 'object' ? structuredClone(layout.sizes) : {}
   storeLocal(blockSizeKey, blockSizes)
+  gayaAset = layout.gaya && typeof layout.gaya === 'object' ? structuredClone(layout.gaya) : {}
+  simpanGayaAset()
   if (layout.photoLayout !== undefined) form.elements.photoLayout.value = String(layout.photoLayout)
   ;[form.elements.docX.value, form.elements.docY.value] = Array.isArray(layout.photo) ? layout.photo : ['', '']
   tatananAktifId = id
