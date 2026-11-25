@@ -977,7 +977,7 @@ document.querySelector('#clear-areas').addEventListener('click', () => {
 })
 
 /* Logo instansi bersifat paten: berkas logo-perumda.png di server, tanpa menu unggah. */
-const LOGO_PATH = 'logo-instansi.webp?v=20261124q'
+const LOGO_PATH = 'logo-instansi.webp?v=20261124r'
 
 function setLogo(image) {
   logo = image
