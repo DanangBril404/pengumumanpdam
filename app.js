@@ -148,6 +148,11 @@ let docBounds = null
 const photoDrag = document.querySelector('#photo-drag')
 const documentationWidth = 840
 const photos = [null, null]
+/* Slot foto yang sedang memutar video (dipakai saat merekam video). */
+const videoSlots = []
+/* Alamat MP3 terpilih untuk backsound video (kosong = tanpa backsound). */
+let backsoundDipilih = ''
+let daftarBacksound = []
 const posterWrap = document.querySelector('#poster-wrap')
 const repairSpray = document.querySelector('#repair-spray')
 const motion = document.querySelector('#motion')
@@ -570,11 +575,14 @@ function drawPhoto(image, x, y, width, height, index) {
     ctx.textAlign = 'start'
     return
   }
+  const sumber = image.video || image
+  /* Slot video diingat supaya saat merekam tiap frame video digambar ulang. */
+  if (image.video) videoSlots.push({ video: image.video, x, y, width, height })
   ctx.save()
   ctx.beginPath()
   ctx.roundRect(x, y, width, height, 22)
   ctx.clip()
-  coverImage(ctx, image, x, y, width, height)
+  coverImage(ctx, sumber, x, y, width, height)
   ctx.restore()
 }
 
@@ -813,6 +821,7 @@ function drawAreasBox(geo, x, y, w, accent, bright, dark, h = geo.areaHeight + 3
 
 function render() {
   const f = fields()
+  videoSlots.length = 0
   for (const entry of posterBlocks.values()) entry.bounds = null
   const backdrop = Object.hasOwn(backdrops, template) ? backdrops[template] : backdrops[defaultTemplate]
   const [dark, bright, accent] = backdrop.colors
@@ -1070,6 +1079,7 @@ function update() {
   for (const [index, row] of photoRows.entries()) row.hidden = index >= count
   showPresetLayouts()
   render()
+  if (typeof perbaruiKontrolVideo === 'function') perbaruiKontrolVideo()
 }
 
 form.addEventListener('submit', event => event.preventDefault())
@@ -1572,6 +1582,112 @@ async function loadImageFile(file) {
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+/* Video pekerjaan: disimpan sebagai elemen <video> supaya bisa diputar saat
+   merekam video pengumuman, dan tetap bisa digambar ke kanvas (PNG/pratinjau). */
+const TIPE_VIDEO = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg']
+
+function adalahVideo(item) {
+  return !!(item && item.video)
+}
+
+function adaVideoPekerjaan() {
+  const jumlah = Number(document.querySelector('[name="photoLayout"]')?.value || 0)
+  if (!jumlah) return false
+  return photos.slice(0, jumlah).some(adalahVideo)
+}
+
+function lepasVideo(item) {
+  if (!item || !item.video) return
+  try { item.video.pause() } catch {}
+  try { item.video.removeAttribute('src') } catch {}
+  if (item.url) { try { URL.revokeObjectURL(item.url) } catch {} }
+}
+
+function loadVideoFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file)
+    const el = document.createElement('video')
+    el.src = url
+    el.muted = true
+    el.loop = true
+    el.playsInline = true
+    el.preload = 'auto'
+    let selesai = false
+    const gagal = pesan => {
+      if (selesai) return
+      selesai = true
+      try { URL.revokeObjectURL(url) } catch {}
+      reject(new Error(pesan))
+    }
+    const beres = () => {
+      if (selesai) return
+      selesai = true
+      el.width = el.videoWidth || 720
+      el.height = el.videoHeight || 1280
+      resolve({ video: el, url, nama: file.name })
+    }
+    el.addEventListener('loadeddata', () => {
+      try { el.currentTime = Math.min(0.15, (el.duration || 1) / 4) } catch { beres() }
+      el.addEventListener('seeked', beres, { once: true })
+      setTimeout(beres, 400)
+    }, { once: true })
+    el.addEventListener('error', () => gagal('Video tidak dapat dibuka. Coba MP4 atau WebM lain.'), { once: true })
+    setTimeout(() => gagal('Video terlalu lama dimuat. Coba berkas yang lebih kecil.'), 25000)
+  })
+}
+
+function perbaruiKontrolVideo() {
+  const ada = adaVideoPekerjaan()
+  const tombol = document.querySelector('#download-video')
+  const kotak = document.querySelector('#backsound-box')
+  if (tombol) tombol.hidden = !ada
+  if (kotak) kotak.hidden = !ada
+  if (ada) muatDaftarBacksound()
+}
+
+function isiPilihanBacksound() {
+  const pilih = document.querySelector('#backsound-pilih')
+  if (!pilih) return
+  const terpilih = backsoundDipilih || backsoundUrl || ''
+  pilih.innerHTML = ''
+  const tanpa = document.createElement('option')
+  tanpa.value = ''
+  tanpa.textContent = 'Tanpa backsound'
+  pilih.append(tanpa)
+  for (const item of daftarBacksound) {
+    const opsi = document.createElement('option')
+    opsi.value = item.url
+    opsi.textContent = item.name
+    pilih.append(opsi)
+  }
+  if (terpilih && !daftarBacksound.some(item => item.url === terpilih)) {
+    const opsi = document.createElement('option')
+    opsi.value = terpilih
+    opsi.textContent = backsoundNama || 'Backsound back office'
+    pilih.append(opsi)
+  }
+  pilih.value = terpilih
+  const hint = document.querySelector('#backsound-hint')
+  if (hint) {
+    hint.textContent = daftarBacksound.length
+      ? 'Ada ' + daftarBacksound.length + ' MP3 di back office. Pilih satu untuk video.'
+      : 'Belum ada MP3 di back office. Unggah lewat menu Identitas & Video.'
+  }
+}
+
+async function muatDaftarBacksound() {
+  try {
+    const respons = await fetch(studioApi + '/api/backsound', { cache: 'no-store' })
+    if (!respons.ok) throw new Error('gagal')
+    const data = await respons.json()
+    daftarBacksound = (Array.isArray(data.files) ? data.files : [])
+      .map(item => ({ ...item, url: alamatMedia(item.url) }))
+  } catch {
+    daftarBacksound = []
+  }
+  isiPilihanBacksound()
 }
 
 const decorationUpload = document.querySelector('#upload-decoration')
@@ -2417,11 +2533,15 @@ for (const [index, input] of photoInputs.entries()) {
     removePhotos[index].hidden = false
     input.value = ''
     try {
-      const image = await loadImageFile(file)
-      if (revision !== photoRevisions[index]) return
-      photos[index] = image
-      mediaStatus.textContent = 'Foto ' + (index + 1) + ' ditambahkan. Foto tersedia selama editor terbuka.'
+      const berkasVideo = TIPE_VIDEO.includes(file.type) || /\.(mp4|webm|mov|m4v|ogv)$/i.test(file.name)
+      const media = berkasVideo ? await loadVideoFile(file) : await loadImageFile(file)
+      if (revision !== photoRevisions[index]) { lepasVideo(media); return }
+      lepasVideo(photos[index])
+      photos[index] = media
+      mediaStatus.textContent = (berkasVideo ? 'Video ' : 'Foto ') + (index + 1) + ' ditambahkan.' +
+        (berkasVideo ? ' Tombol Unduh Video aktif.' : ' Media tersedia selama editor terbuka.')
       render()
+      perbaruiKontrolVideo()
     } catch (error) {
       if (revision !== photoRevisions[index]) return
       removePhotos[index].hidden = !photos[index]
@@ -2430,10 +2550,22 @@ for (const [index, input] of photoInputs.entries()) {
   })
   removePhotos[index].addEventListener('click', () => {
     photoRevisions[index] += 1
+    lepasVideo(photos[index])
     photos[index] = null
     removePhotos[index].hidden = true
-    mediaStatus.textContent = 'Foto ' + (index + 1) + ' dihapus.'
+    mediaStatus.textContent = 'Media ' + (index + 1) + ' dihapus.'
     render()
+    perbaruiKontrolVideo()
+  })
+}
+
+const backsoundPilih = document.querySelector('#backsound-pilih')
+if (backsoundPilih) {
+  backsoundPilih.addEventListener('change', () => {
+    backsoundDipilih = backsoundPilih.value
+    mediaStatus.textContent = backsoundDipilih
+      ? 'Backsound video: ' + (backsoundPilih.selectedOptions[0]?.textContent || 'MP3 terpilih') + '.'
+      : 'Video akan dibuat tanpa backsound.'
   })
 }
 
@@ -2489,11 +2621,12 @@ function mimeVideo() {
 }
 
 async function siapkanBacksound() {
-  if (!backsoundUrl) return null
+  const alamat = backsoundDipilih || backsoundUrl
+  if (!alamat) return null
   const Konteks = window.AudioContext || window.webkitAudioContext
   if (!Konteks) return null
   const konteks = new Konteks()
-  const respons = await fetch(backsoundUrl, { cache: 'no-store' })
+  const respons = await fetch(alamat, { cache: 'no-store' })
   if (!respons.ok) throw new Error('backsound tidak bisa diunduh')
   const buffer = await konteks.decodeAudioData(await respons.arrayBuffer())
   const sumber = konteks.createBufferSource()
@@ -2543,6 +2676,10 @@ document.querySelector('#download-video').addEventListener('click', async () => 
     perekam.start(200)
     const durasi = 8000
     const mulai = performance.now()
+    const slotVideo = videoSlots.map(slot => ({ ...slot }))
+    for (const slot of slotVideo) {
+      try { slot.video.currentTime = 0; await slot.video.play() } catch {}
+    }
     await new Promise(resolve => {
       function gambar() {
         const t = Math.min(1, (performance.now() - mulai) / durasi)
@@ -2554,6 +2691,16 @@ document.querySelector('#download-video').addEventListener('click', async () => 
         ctx.translate(lebar / 2, tinggi / 2)
         ctx.scale(zoom, zoom)
         ctx.drawImage(potret, -lebar / 2, -tinggi / 2)
+        /* Video pekerjaan digambar ulang tiap frame agar ikut bergerak. */
+        for (const slot of slotVideo) {
+          if (slot.video.readyState < 2) continue
+          ctx.save()
+          ctx.beginPath()
+          ctx.roundRect(slot.x, slot.y, slot.width, slot.height, 22)
+          ctx.clip()
+          coverImage(ctx, slot.video, slot.x, slot.y, slot.width, slot.height)
+          ctx.restore()
+        }
         ctx.restore()
         const redup = (1 - Math.min(1, t / 0.1) * Math.min(1, (1 - t) / 0.1)) * 0.95
         if (redup > 0.002) {
@@ -2579,11 +2726,15 @@ document.querySelector('#download-video').addEventListener('click', async () => 
     link.click()
     setTimeout(() => URL.revokeObjectURL(url), 2000)
     status.textContent = 'Video ' + lebar + ' × ' + tinggi + ' siap (' + ekstensi.toUpperCase() +
-      (backsoundUrl ? ', dengan backsound' : ', tanpa backsound') + ').'
+      ((backsoundDipilih || backsoundUrl) ? ', dengan backsound' : ', tanpa backsound') + ').'
   } catch (error) {
     status.textContent = 'Video gagal dibuat: ' + error.message
   } finally {
     if (audio) { try { audio.sumber.stop() } catch {} ; try { audio.konteks.close() } catch {} }
+    for (const item of photos) {
+      if (!adalahVideo(item)) continue
+      try { item.video.pause(); item.video.currentTime = 0 } catch {}
+    }
     tombol.dataset.sibuk = '0'
     tombol.disabled = false
     if (presetLama !== posterSize) setPosterSize(presetLama, false)
@@ -2695,6 +2846,7 @@ function applyServerData(data) {
     backsoundUrl = typeof data.settings.backsound === 'string' ? data.settings.backsound : ''
     backsoundNama = typeof data.settings.backsoundName === 'string' ? data.settings.backsoundName : ''
     changed = true
+    if (typeof perbaruiKontrolVideo === 'function') perbaruiKontrolVideo()
   }
   if (Array.isArray(data.pipeArt) && data.pipeArt.length) {
     for (const [id, item] of Object.entries(backdrops)) if (item.server && item.kind === 'foto') delete backdrops[id]

@@ -278,6 +278,33 @@ def settings_tulis(data):
     return sekarang
 
 
+EKST_AUDIO = ('.mp3', '.m4a', '.aac', '.wav', '.ogg')
+
+
+def daftar_audio():
+    """Daftar semua MP3/audio yang pernah diunggah lewat back office."""
+    hasil = []
+    if not os.path.isdir(UPLOAD_DIR):
+        return hasil
+    for nama in os.listdir(UPLOAD_DIR):
+        if os.path.splitext(nama)[1].lower() not in EKST_AUDIO:
+            continue
+        lokasi = os.path.join(UPLOAD_DIR, nama)
+        if not os.path.isfile(lokasi):
+            continue
+        label = re.sub(r'^\d{14}-[0-9a-f]{8}-', '', nama)
+        label = os.path.splitext(label)[0].replace('-', ' ').strip() or nama
+        hasil.append({
+            'name': label,
+            'file': nama,
+            'url': '/api/media/' + nama,
+            'size': os.path.getsize(lokasi),
+            'mtime': int(os.path.getmtime(lokasi))
+        })
+    hasil.sort(key=lambda item: item['mtime'], reverse=True)
+    return hasil
+
+
 def slug(text):
     bersih = re.sub(r'[^a-z0-9]+', '-', text.lower()).strip('-')
     return (bersih or 'item')[:40]
@@ -341,6 +368,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.kirim(200, payload())
         if jalur == '/api/settings':
             return self.kirim(200, payload_settings())
+        if jalur == '/api/backsound':
+            return self.kirim(200, {'files': daftar_audio()})
         if jalur == '/api/session':
             return self.kirim(200, {'authenticated': self.cookie_auth(), 'needsSetup': not has_admin()})
         if jalur.startswith('/api/media/'):
